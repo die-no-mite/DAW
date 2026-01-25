@@ -12,6 +12,7 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
                     int nFunsterStil)
 
 {
+    /* hello this is my change */
     HWND hwnd;               /* This is the handle for our window */
     MSG messages;            /* Here messages to the application are saved */
     WNDCLASSEX wincl;        /* Data structure for the windowclass */
