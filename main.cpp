@@ -461,6 +461,7 @@ public:
 			if (midiOutOpen(&hInstrument, 2, NULL, 0, NULL) == MMSYSERR_NOERROR)
 			{
 				std::cout << "Opened midi" << std::endl;
+				change to push
 			}
 		}
 		*/
