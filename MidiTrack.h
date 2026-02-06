@@ -2,6 +2,8 @@
 #define MIDITRACK_H
 
 #include <cstdint>
+#include <array>
+
 
 struct MidiNote;
 
