@@ -26,7 +26,6 @@ public:
 
 };
 
-// This defines the equivalent of main() for the current platform.
 
 
 class MIDIPane : public wxPanel {
