@@ -33,6 +33,7 @@ public:
 private:
 	void OnAddButtonClick(wxCommandEvent &event);
 	void OnRemoveButtonClick(wxCommandEvent &event);
+	void OnMouseEvent(wxMouseEvent &event);
 
 	void OnNoteAdded(wxCommandEvent& event);
 	void OnNoteRemoved(wxCommandEvent& event);
@@ -156,6 +157,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	canvas = new MidiFrame(this, wxID_ANY, wxDefaultPosition, this->FromDIP(wxSize(640, 480)));
 	canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
 	canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
+	canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
 
 	rectCount = canvas->getObjectCount();
 
@@ -185,6 +187,24 @@ void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
 {
 	canvas->removeTopNote();
+}
+
+//double click to add a note, currently breaks double click to remove
+//need to find a way to detect when the mouse is hovering over an existing note and disable this function when true
+void MyFrame::OnMouseEvent(wxMouseEvent& evt)
+{
+	std::uniform_int_distribution<> sizeDistrib(this->FromDIP(50), this->FromDIP(100));
+	std::uniform_int_distribution<> xDistrib(0, canvas->GetSize().GetWidth());
+	std::uniform_int_distribution<> yDistrib(0, canvas->GetSize().GetHeight());
+	std::uniform_real_distribution<> angleDistrib(0.0, M_PI * 2.0);
+
+	std::uniform_int_distribution<> colorDistrib(0, 0xFFFFFF);
+
+	wxPoint mousePos = evt.GetPosition();
+
+	rectCount++;
+	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y,
+		angleDistrib(randomGen), wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
 }
 
 void MyFrame::OnNoteAdded(wxCommandEvent& event)

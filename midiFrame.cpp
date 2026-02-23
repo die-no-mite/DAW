@@ -14,6 +14,7 @@ MidiFrame::MidiFrame(wxWindow *parent, wxWindowID id, const wxPoint &pos, const 
 	this->Bind(wxEVT_MOTION, &MidiFrame::OnMouseMove, this);
 	this->Bind(wxEVT_LEFT_UP, &MidiFrame::OnMouseUp, this);
 	this->Bind(wxEVT_LEAVE_WINDOW, &MidiFrame::OnMouseLeave, this);
+	this->Bind(wxEVT_LEFT_DCLICK, &MidiFrame::OnMouseEvent, this);
 
 	addNote(this->FromDIP(100), this->FromDIP(80), this->FromDIP(210), this->FromDIP(140), 0, *wxRED, "rect");
 	addNote(this->FromDIP(130), this->FromDIP(110), this->FromDIP(280), this->FromDIP(210), M_PI / 3.0, *wxBLUE, "rect");
@@ -53,6 +54,12 @@ void MidiFrame::removeTopNote()
 		sendNoteRemovedEvent(text);
 		Refresh();
 	}
+}
+
+//Removes Note when the note is double clicked
+void MidiFrame::OnMouseEvent(wxMouseEvent &evt)
+{
+	removeTopNote();
 }
 
 void MidiFrame::OnPaint(wxPaintEvent& evt)

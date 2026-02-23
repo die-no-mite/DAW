@@ -25,6 +25,7 @@ private:
 	void OnMouseMove(wxMouseEvent& event);
 	void OnMouseUp(wxMouseEvent& event);
 	void OnMouseLeave(wxMouseEvent& event);
+	void OnMouseEvent(wxMouseEvent& event);
 
 	void finishDrag();
 	void finishRotation();
