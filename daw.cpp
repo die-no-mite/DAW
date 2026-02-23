@@ -2,6 +2,8 @@
 
 #include <fstream>
 #include <array>
+#include <random>
+
 #include "MidiC.h"
 #include "MidiEvent.h"
 #include "MidiNote.h"
@@ -29,11 +31,22 @@ public:
 	MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
 
 private:
-	midiFrame* canvas;
+	void OnAddButtonClick(wxCommandEvent &event);
+	void OnRemoveButtonClick(wxCommandEvent &event);
+
+	void OnNoteAdded(wxCommandEvent& event);
+	void OnNoteRemoved(wxCommandEvent& event);
+
+	wxPanel* createButtonPanel(wxWindow* parent);
+
+	MidiFrame* canvas;
+
+	int rectCount = 0;
+	std::mt19937 randomGen;
 };
 
 
-
+/*
 class MIDIPane : public wxPanel {
 public:
 
@@ -98,6 +111,7 @@ private:
 
 
 };
+*/
 
 enum
 {
@@ -114,6 +128,9 @@ bool MyApp::OnInit()
 	if (!wxApp::OnInit())
 		return false;
 
+	MyFrame* frame = new MyFrame("DAW", wxPoint(50, 50), wxDefaultSize);
+	frame->Show(true);
+
 	MidiFile midi;
 
 	size_t nCurrentNote[16]{ 0 };
@@ -123,47 +140,82 @@ bool MyApp::OnInit()
 	uint32_t nMidiClock = 0;
 
 
-
-
-
 	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
-	frame = new wxFrame((wxFrame*)NULL, -1, wxT("DAW"), wxPoint(50, 50), wxSize(800, 600));
-
-
-	frame->SetSizer(sizer);
-	frame->SetAutoLayout(true);
-	frame->Show(true);
 
 	return true;
 }
 
-wxBEGIN_EVENT_TABLE(MIDIPane, wxPanel)
-//EVT_MENU(Minimal_Quit, MIDIPane::OnQuit)
-//EVT_MENU(Minimal_About, MIDIPane::OnAbout)
-EVT_KEY_DOWN(MIDIPane::OnKeyDown)
-EVT_TIMER(wxID_ANY, MIDIPane::OnTimer)
-EVT_PAINT(MIDIPane::paintEvent)
-wxEND_EVENT_TABLE()
-
-MIDIPane::MIDIPane(wxFrame* parent) :
-	wxPanel(parent)
+MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
+	: wxFrame(NULL, wxID_ANY, title, pos, size)
 {
+	wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
+	auto buttonPanel = createButtonPanel(this);
+
+	canvas = new MidiFrame(this, wxID_ANY, wxDefaultPosition, this->FromDIP(wxSize(640, 480)));
+	canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
+	canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
+
+	rectCount = canvas->getObjectCount();
+
+	sizer->Add(buttonPanel, 0, wxEXPAND | wxALL, 0);
+	sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
+
+	this->SetSizerAndFit(sizer);
+
+	CreateStatusBar(1);
+	SetStatusText("Ready", 0);
 }
 
-void MIDIPane::paintEvent(wxPaintEvent& evt)
+void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 {
-	wxPaintDC dc(this);
-	render(dc);
+	std::uniform_int_distribution<> sizeDistrib (this->FromDIP(50), this->FromDIP(100));
+	std::uniform_int_distribution<> xDistrib(0, canvas->GetSize().GetWidth());
+	std::uniform_int_distribution<> yDistrib(0, canvas->GetSize().GetHeight());
+	std::uniform_real_distribution<> angleDistrib(0.0, M_PI * 2.0);
+
+	std::uniform_int_distribution<> colorDistrib(0, 0xFFFFFF);
+
+	rectCount++;
+	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen),
+		angleDistrib(randomGen), wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
 }
 
-void MIDIPane::paintNow()
+void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
 {
-	wxClientDC dc(this);
-	render(dc);
+	canvas->removeTopNote();
 }
 
+void MyFrame::OnNoteAdded(wxCommandEvent& event)
+{
+	SetStatusText("Note named " + event.GetString() + " added!", 0);
+}
+
+void MyFrame::OnNoteRemoved(wxCommandEvent& event)
+{
+	SetStatusText("Note named " + event.GetString() + " REMOVED!", 0);
+}
+
+wxPanel* MyFrame::createButtonPanel(wxWindow* parent)
+{
+	wxPanel* panel = new wxPanel(parent);
+	wxButton* addNoteButton = new wxButton(panel, wxID_ANY, "Add Note");
+	wxButton* removeLastButton = new wxButton(panel, wxID_ANY, "Remove Top Note");
+
+	wxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
+	sizer->Add(addNoteButton, 0, wxEXPAND | wxALL, 3);
+	sizer->Add(removeLastButton, 0, wxEXPAND | wxALL, 3);
+
+	panel->SetSizer(sizer);
+
+	addNoteButton->Bind(wxEVT_BUTTON, &MyFrame::OnAddButtonClick, this);
+	removeLastButton->Bind(wxEVT_BUTTON, &MyFrame::OnRemoveButtonClick, this);
+
+	return panel;
+}
+
+/*
 void MIDIPane::render(wxDC& dc)
 {
 	dc.DrawText(wxT("Testing"), 40, 60);
@@ -171,7 +223,7 @@ void MIDIPane::render(wxDC& dc)
 	// draw a circle
 	dc.SetBrush(*wxGREEN_BRUSH); // green filling
 	dc.SetPen(wxPen(wxColor(255, 0, 0), 5)); // 5-pixels-thick red outline
-	dc.DrawCircle(wxPoint(200, 100), 25 /* radius */);
+	dc.DrawCircle(wxPoint(200, 100), 25 /* radius /);
 
 	// draw a rectangle
 	dc.SetBrush(*wxBLUE_BRUSH); // blue filling
@@ -242,7 +294,7 @@ void MIDIPane::render(wxDC& dc)
 
 	}
 	*/
-}
+//}
 
 
 /*

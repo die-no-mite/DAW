@@ -1,14 +1,41 @@
 #pragma once
 
 #include <wx/wx.h>
+#include <list>
 
-class midiFrame : public wxWindow
+#include "graphicMIDIevent.h"
+
+wxDECLARE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
+wxDECLARE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
+
+class MidiFrame : public wxWindow
 {
 public:
-	midiFrame(wxWindow *parent, wxWindowID id, const wxPoint $pos, const wxSize &size);
-	virtual ~midiFrame(){}
+	MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);
+	virtual ~MidiFrame(){}
+
+	void addNote(int width, int height, int centerX, int centerY, double angle, wxColor color, const std::string& text);
+	void removeTopNote();
+
+	int getObjectCount() { return noteList.size(); }
 private:
-	midiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);
-	void OnPaint(wxPaintEvent& evt);
 	
+	void OnPaint(wxPaintEvent& evt);
+	void OnMouseDown(wxMouseEvent& event);
+	void OnMouseMove(wxMouseEvent& event);
+	void OnMouseUp(wxMouseEvent& event);
+	void OnMouseLeave(wxMouseEvent& event);
+
+	void finishDrag();
+	void finishRotation();
+
+	void sendNoteAddedEvent(const wxString& noteTitle);
+	void sendNoteRemovedEvent(const wxString& noteTitle);
+
+	std::list<GraphicMIDIEvent> noteList;
+	
+	GraphicMIDIEvent* draggedObj;
+	bool shouldRotate;
+
+	wxPoint2DDouble lastDragOrigin;
 };
