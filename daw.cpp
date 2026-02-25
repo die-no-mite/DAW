@@ -181,7 +181,7 @@ void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 
 	rectCount++;
 	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen),
-		angleDistrib(randomGen), wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
+		wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
 }
 
 void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
@@ -193,9 +193,8 @@ void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
 //need to find a way to detect when the mouse is hovering over an existing note and disable this function when true
 void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 {
+	
 	std::uniform_int_distribution<> sizeDistrib(this->FromDIP(50), this->FromDIP(100));
-	std::uniform_int_distribution<> xDistrib(0, canvas->GetSize().GetWidth());
-	std::uniform_int_distribution<> yDistrib(0, canvas->GetSize().GetHeight());
 	std::uniform_real_distribution<> angleDistrib(0.0, M_PI * 2.0);
 
 	std::uniform_int_distribution<> colorDistrib(0, 0xFFFFFF);
@@ -204,7 +203,8 @@ void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 
 	rectCount++;
 	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y,
-		angleDistrib(randomGen), wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
+		wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
+	
 }
 
 void MyFrame::OnNoteAdded(wxCommandEvent& event)

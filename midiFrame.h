@@ -14,7 +14,7 @@ public:
 	MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);
 	virtual ~MidiFrame(){}
 
-	void addNote(int width, int height, int centerX, int centerY, double angle, wxColor color, const std::string& text);
+	void addNote(int width, int height, int centerX, int centerY, wxColor color, const std::string& text);
 	void removeTopNote();
 
 	int getObjectCount() { return noteList.size(); }
@@ -28,7 +28,7 @@ private:
 	void OnMouseEvent(wxMouseEvent& event);
 
 	void finishDrag();
-	void finishRotation();
+	void finishExtend();
 
 	void sendNoteAddedEvent(const wxString& noteTitle);
 	void sendNoteRemovedEvent(const wxString& noteTitle);
@@ -36,7 +36,7 @@ private:
 	std::list<GraphicMIDIEvent> noteList;
 	
 	GraphicMIDIEvent* draggedObj;
-	bool shouldRotate;
+	bool shouldExtend;
 
 	wxPoint2DDouble lastDragOrigin;
 };

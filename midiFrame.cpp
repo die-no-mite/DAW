@@ -16,15 +16,15 @@ MidiFrame::MidiFrame(wxWindow *parent, wxWindowID id, const wxPoint &pos, const 
 	this->Bind(wxEVT_LEAVE_WINDOW, &MidiFrame::OnMouseLeave, this);
 	this->Bind(wxEVT_LEFT_DCLICK, &MidiFrame::OnMouseEvent, this);
 
-	addNote(this->FromDIP(100), this->FromDIP(80), this->FromDIP(210), this->FromDIP(140), 0, *wxRED, "rect");
-	addNote(this->FromDIP(130), this->FromDIP(110), this->FromDIP(280), this->FromDIP(210), M_PI / 3.0, *wxBLUE, "rect");
-	addNote(this->FromDIP(110), this->FromDIP(110), this->FromDIP(300), this->FromDIP(120), -M_PI /4.0, wxColor(255, 0, 255, 120), "rect");
+	addNote(this->FromDIP(100), this->FromDIP(80), this->FromDIP(210), this->FromDIP(140), *wxRED, "Note #1");
+	addNote(this->FromDIP(130), this->FromDIP(110), this->FromDIP(280), this->FromDIP(210), *wxBLUE, "Note #2");
+	addNote(this->FromDIP(110), this->FromDIP(110), this->FromDIP(300), this->FromDIP(120), wxColor(255, 0, 255, 120), "Note #3");
 
 	this->draggedObj = nullptr;
-	this->shouldRotate = false;
+	this->shouldExtend = false;
 }
 
-void MidiFrame::addNote(int width, int height, int centerX, int centerY, double angle, wxColor color, const std::string& text)
+void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor color, const std::string& text)
 {
 	GraphicMIDIEvent obj{
 		{-width / 2.0,
@@ -36,7 +36,7 @@ void MidiFrame::addNote(int width, int height, int centerX, int centerY, double 
 		{}
 	};
 	obj.transform.Translate(static_cast<double>(centerX), static_cast<double>(centerY));
-	obj.transform.Rotate(angle);
+	
 	
 	this->noteList.push_back(obj);
 	
@@ -113,7 +113,7 @@ void MidiFrame::OnMouseDown(wxMouseEvent& event)
 		draggedObj = &(*std::prev(noteList.end()));
 
 		lastDragOrigin = event.GetPosition();
-		shouldRotate = wxGetKeyState(WXK_ALT);
+		shouldExtend = wxGetKeyState(WXK_ALT);
 
 		Refresh(); // for z order reversal
 	}
@@ -123,12 +123,7 @@ void MidiFrame::OnMouseMove(wxMouseEvent& event)
 {
 	if (draggedObj != nullptr)
 	{
-		if (shouldRotate)
-		{
-			double absoluteYDiff = event.GetPosition().y - lastDragOrigin.m_y;
-			draggedObj->transform.Rotate(absoluteYDiff / 100.0 * M_PI);
-		}
-		else
+		if (shouldExtend == false)
 		{
 			auto dragVector = event.GetPosition() - lastDragOrigin;
 
@@ -137,23 +132,34 @@ void MidiFrame::OnMouseMove(wxMouseEvent& event)
 			dragVector = inv.TransformDistance(dragVector);
 
 			draggedObj->transform.Translate(dragVector.m_x, dragVector.m_y);
-		}
 
-		lastDragOrigin = event.GetPosition();
-		Refresh();
+
+			lastDragOrigin = event.GetPosition();
+			Refresh();
+		}
+		else
+		{
+			//doesnt work
+			auto extendVector = event.GetPosition() - lastDragOrigin;
+			auto inv = draggedObj->transform;
+
+			inv.Invert();
+			extendVector = inv.TransformDistance(extendVector);
+			draggedObj->transform.Scale(extendVector.m_x/2, extendVector.m_y/2);
+		}
 	}
 }
 
 void MidiFrame::OnMouseUp(wxMouseEvent& event)
 {
 	finishDrag();
-	finishRotation();
+	finishExtend();
 }
 
 void MidiFrame::OnMouseLeave(wxMouseEvent& event)
 {
 	finishDrag();
-	finishRotation();
+	finishExtend();
 }
 
 void MidiFrame::finishDrag()
@@ -161,9 +167,9 @@ void MidiFrame::finishDrag()
 	draggedObj = nullptr;
 }
 
-void MidiFrame::finishRotation()
+void MidiFrame::finishExtend()
 {
-	shouldRotate = false;
+	shouldExtend = false;
 }
 
 void MidiFrame::sendNoteAddedEvent(const wxString& rectTitle)
