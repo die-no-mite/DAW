@@ -5,9 +5,9 @@
 wxDEFINE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDEFINE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 
-MidiFrame::MidiFrame(wxWindow *parent, wxWindowID id, const wxPoint &pos, const wxSize &size) : wxWindow(parent, id, pos, size)
+MidiFrame::MidiFrame(wxWindow *parent, wxWindowID id)
 {
-	this->SetBackgroundStyle(wxBG_STYLE_PAINT);
+	//this->SetBackgroundStyle(wxBG_STYLE_PAINT);
 
 	this->Bind(wxEVT_PAINT, &MidiFrame::OnPaint, this);
 	this->Bind(wxEVT_LEFT_DOWN, &MidiFrame::OnMouseDown, this);
@@ -16,12 +16,23 @@ MidiFrame::MidiFrame(wxWindow *parent, wxWindowID id, const wxPoint &pos, const 
 	this->Bind(wxEVT_LEAVE_WINDOW, &MidiFrame::OnMouseLeave, this);
 	this->Bind(wxEVT_LEFT_DCLICK, &MidiFrame::OnMouseEvent, this);
 
+	//CreateMIDIPanel(parent);
+
+	this->draggedObj = nullptr;
+	this->shouldExtend = false;
+
+	this->selected = false;
+}
+
+wxPanel *MidiFrame::CreateMIDIPanel(wxWindow* parent)
+{
+	auto MIDIPanel = new wxPanel(parent, wxID_ANY);
+
 	addNote(this->FromDIP(100), this->FromDIP(80), this->FromDIP(210), this->FromDIP(140), *wxRED, "Note #1");
 	addNote(this->FromDIP(130), this->FromDIP(110), this->FromDIP(280), this->FromDIP(210), *wxBLUE, "Note #2");
 	addNote(this->FromDIP(110), this->FromDIP(110), this->FromDIP(300), this->FromDIP(120), wxColor(255, 0, 255, 120), "Note #3");
 
-	this->draggedObj = nullptr;
-	this->shouldExtend = false;
+	return MIDIPanel;
 }
 
 void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor color, const std::string& text)

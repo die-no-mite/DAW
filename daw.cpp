@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <array>
+#include <vector>
 #include <random>
 
 #include "MidiC.h"
@@ -13,6 +14,8 @@
 
 #include <wx/wx.h>
 #include <wx/timer.h>
+#include <wx/wrapsizer.h>
+#include <wx/splitter.h>
 
 //#pragma comment(lib, "winmm.lib")
 
@@ -31,6 +34,8 @@ public:
 	MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
 
 private:
+	wxPanel *BuildTrackInfoPanel(wxWindow* parent);
+
 	void OnAddButtonClick(wxCommandEvent &event);
 	void OnRemoveButtonClick(wxCommandEvent &event);
 	void OnMouseEvent(wxMouseEvent &event);
@@ -40,12 +45,21 @@ private:
 
 	wxPanel* createButtonPanel(wxWindow* parent);
 
-	MidiFrame* canvas;
+	MidiFrame *canvas;
 
 	int rectCount = 0;
 	std::mt19937 randomGen;
 };
-
+/*
+wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
+{
+	std::vector<wxString> form = {
+		{"Track 1"},
+		{"Track 2"},
+		{"Track 3"}
+	};
+}
+*/
 
 /*
 class MIDIPane : public wxPanel {
@@ -129,7 +143,7 @@ bool MyApp::OnInit()
 	if (!wxApp::OnInit())
 		return false;
 
-	MyFrame* frame = new MyFrame("DAW", wxPoint(50, 50), wxDefaultSize);
+	MyFrame *frame = new MyFrame("DAW", wxDefaultPosition, wxDefaultSize);
 	frame->Show(true);
 
 	MidiFile midi;
@@ -141,7 +155,7 @@ bool MyApp::OnInit()
 	uint32_t nMidiClock = 0;
 
 
-	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
+	//wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
 
 	return true;
@@ -150,24 +164,45 @@ bool MyApp::OnInit()
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	: wxFrame(NULL, wxID_ANY, title, pos, size)
 {
-	wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+	
+	
+	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
 
-	auto buttonPanel = createButtonPanel(this);
+	splitter->SetMinimumPaneSize(FromDIP(150));
+	 
+	auto trackInfoPanel = new wxPanel(splitter, wxID_ANY);
+	auto tracksPanel = canvas->CreateMIDIPanel(splitter);
+	tracksPanel->SetBackgroundColour(wxColor("#ffffff"));
 
-	canvas = new MidiFrame(this, wxID_ANY, wxDefaultPosition, this->FromDIP(wxSize(640, 480)));
-	canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
-	canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
-	canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
+	splitter->SplitVertically(trackInfoPanel, tracksPanel);
+	splitter->SetSashPosition(FromDIP(150));
+
+	this->SetSize(FromDIP(800), FromDIP(500));
+	this->SetMinSize({ FromDIP(400), FromDIP(200) });
+	
+	tracksPanel->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
+	
+	//wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+
+
+	//auto buttonPanel = createButtonPanel(this);
+
+	
+	
+	tracksPanel->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
+	tracksPanel->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
+
 
 	rectCount = canvas->getObjectCount();
 
-	sizer->Add(buttonPanel, 0, wxEXPAND | wxALL, 0);
-	sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
+	//sizer->Add(buttonPanel, 0, wxEXPAND | wxALL, 0);
+	//sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
 
-	this->SetSizerAndFit(sizer);
+	//this->SetSizerAndFit(sizer);
 
 	CreateStatusBar(1);
 	SetStatusText("Ready", 0);
+	
 }
 
 void MyFrame::OnAddButtonClick(wxCommandEvent& event)
