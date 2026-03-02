@@ -11,7 +11,7 @@
 #include "MidiTrack.h"
 #include "midiFrame.h"
 #include "ColorPane.h"
-#include "PenSizePane.h"
+
 
 
 #include <wx/wx.h>
@@ -36,9 +36,7 @@ public:
 	void SetupInfoPanes(wxWindow* parent, wxSizer* sizer);
 	MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
 
-	void SelectColorPane(ColorPane* pane);
-
-	void SelectPenPane(PenSizePane* pane);
+	
 
 private:
 	void SetupPenPanes(wxWindow* parent, wxSizer* sizer);
@@ -53,20 +51,13 @@ private:
 
 	wxPanel* createButtonPanel(wxWindow* parent);
 
-	std::vector<ColorPane*> colorPanes{};
-	std::vector<PenSizePane*> penPanes{};
+	
 
 	MidiFrame *canvas;
 
 	int rectCount = 0;
 	std::mt19937 randomGen;
 
-	const std::vector<std::string> niceColors = { "#000000", "#ffffff", "#fd7f6f",
-												 "#7eb0d5", "#b2e061", "#bd7ebe",
-												 "#ffb55a", "#ffee65", "#beb9db",
-												 "#fdcce5", "#8bd3c7" };
-
-	const int penCount = 6;
 
 	const std::string lightBackground = "#f4f3f3";
 	const std::string darkBackground = "#2c2828";
@@ -155,19 +146,7 @@ enum
 	Minimal_About = wxID_ABOUT
 };
 
-void MyFrame::SetupPenPanes(wxWindow* parent, wxSizer* sizer)
-{
-	for (int i = 0; i < penCount; i++)
-	{
-		auto penPane = new PenSizePane(parent, wxID_ANY, i * FromDIP(4) + FromDIP(1));
 
-		penPane->Bind(wxEVT_LEFT_DOWN, [this, penPane](wxMouseEvent& event)
-			{ SelectPenPane(penPane); });
-
-		penPanes.push_back(penPane);
-		sizer->Add(penPane, 0, wxRIGHT | wxBOTTOM, FromDIP(5));
-	}
-}
 
 wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
 {
@@ -186,15 +165,6 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
 	SetupInfoPanes(trackInfoPanel, infoPaneSizer);
 
 	mainSizer->Add(infoPaneSizer, 0, wxALL, FromDIP(5));
-
-	text = new wxStaticText(trackInfoPanel, wxID_ANY, "Pens");
-	mainSizer->Add(text, 0, wxALL, FromDIP(5));
-
-	auto penPaneSizer = new wxWrapSizer(wxHORIZONTAL);
-	SetupPenPanes(trackInfoPanel, penPaneSizer);
-	mainSizer->Add(penPaneSizer, 0, wxALL, FromDIP(5));
-
-	auto button = new wxButton(trackInfoPanel, wxID_ANY, "Save As...");
 
 	mainSizer->AddStretchSpacer();
 	
@@ -236,16 +206,7 @@ bool MyApp::OnInit()
 
 void MyFrame::SetupInfoPanes(wxWindow* parent, wxSizer* sizer)
 {
-	for (const auto& color : niceColors)
-	{
-		auto colorPane = new ColorPane(parent, wxID_ANY, wxColour(color));
-
-		colorPane->Bind(wxEVT_LEFT_DOWN, [this, colorPane](wxMouseEvent& event)
-			{ SelectColorPane(colorPane); });
-
-		colorPanes.push_back(colorPane);
-		sizer->Add(colorPane, 0, wxRIGHT | wxBOTTOM, FromDIP(5));
-	}
+	NULL;
 }
 
 
@@ -295,27 +256,6 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	
 }
 
-void MyFrame::SelectColorPane(ColorPane* pane)
-{
-	for (auto colorPane : colorPanes)
-	{
-		colorPane->selected = (colorPane == pane);
-		colorPane->Refresh();
-	}
-
-	//canvas->currentColor = pane->color;
-}
-
-void MyFrame::SelectPenPane(PenSizePane* pane)
-{
-	for (auto penPane : penPanes)
-	{
-		penPane->selected = (penPane == pane);
-		penPane->Refresh();
-	}
-
-	//canvas->currentWidth = pane->penWidth;
-}
 
 void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 {
