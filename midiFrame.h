@@ -11,8 +11,8 @@ wxDECLARE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 class MidiFrame : public wxWindow
 {
 public:
-	MidiFrame(wxWindow* parent, wxWindowID id);
-	wxPanel *CreateMIDIPanel(wxWindow* parent);
+	MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);
+	
 	virtual ~MidiFrame(){}
 
 	void addNote(int width, int height, int centerX, int centerY, wxColor color, const std::string& text);

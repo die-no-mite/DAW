@@ -10,6 +10,8 @@
 #include "MidiNote.h"
 #include "MidiTrack.h"
 #include "midiFrame.h"
+#include "ColorPane.h"
+#include "PenSizePane.h"
 
 
 #include <wx/wx.h>
@@ -31,9 +33,15 @@ public:
 class MyFrame : public wxFrame
 {
 public:
+	void SetupInfoPanes(wxWindow* parent, wxSizer* sizer);
 	MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
 
+	void SelectColorPane(ColorPane* pane);
+
+	void SelectPenPane(PenSizePane* pane);
+
 private:
+	void SetupPenPanes(wxWindow* parent, wxSizer* sizer);
 	wxPanel *BuildTrackInfoPanel(wxWindow* parent);
 
 	void OnAddButtonClick(wxCommandEvent &event);
@@ -45,10 +53,23 @@ private:
 
 	wxPanel* createButtonPanel(wxWindow* parent);
 
+	std::vector<ColorPane*> colorPanes{};
+	std::vector<PenSizePane*> penPanes{};
+
 	MidiFrame *canvas;
 
 	int rectCount = 0;
 	std::mt19937 randomGen;
+
+	const std::vector<std::string> niceColors = { "#000000", "#ffffff", "#fd7f6f",
+												 "#7eb0d5", "#b2e061", "#bd7ebe",
+												 "#ffb55a", "#ffee65", "#beb9db",
+												 "#fdcce5", "#8bd3c7" };
+
+	const int penCount = 6;
+
+	const std::string lightBackground = "#f4f3f3";
+	const std::string darkBackground = "#2c2828";
 };
 /*
 wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
@@ -134,6 +155,57 @@ enum
 	Minimal_About = wxID_ABOUT
 };
 
+void MyFrame::SetupPenPanes(wxWindow* parent, wxSizer* sizer)
+{
+	for (int i = 0; i < penCount; i++)
+	{
+		auto penPane = new PenSizePane(parent, wxID_ANY, i * FromDIP(4) + FromDIP(1));
+
+		penPane->Bind(wxEVT_LEFT_DOWN, [this, penPane](wxMouseEvent& event)
+			{ SelectPenPane(penPane); });
+
+		penPanes.push_back(penPane);
+		sizer->Add(penPane, 0, wxRIGHT | wxBOTTOM, FromDIP(5));
+	}
+}
+
+wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
+{
+	auto trackInfoPanel = new wxScrolled<wxPanel>(parent, wxID_ANY);
+	trackInfoPanel->SetScrollRate(0, FromDIP(10));
+
+	bool isDark = wxSystemSettings::GetAppearance().IsDark();
+	trackInfoPanel->SetBackgroundColour(wxColor(isDark ? darkBackground : lightBackground));
+
+	auto mainSizer = new wxBoxSizer(wxVERTICAL);
+
+	auto text = new wxStaticText(trackInfoPanel, wxID_ANY, "Tracks");
+	mainSizer->Add(text, 0, wxALL, FromDIP(5));
+
+	auto infoPaneSizer = new wxWrapSizer(wxHORIZONTAL);
+	SetupInfoPanes(trackInfoPanel, infoPaneSizer);
+
+	mainSizer->Add(infoPaneSizer, 0, wxALL, FromDIP(5));
+
+	text = new wxStaticText(trackInfoPanel, wxID_ANY, "Pens");
+	mainSizer->Add(text, 0, wxALL, FromDIP(5));
+
+	auto penPaneSizer = new wxWrapSizer(wxHORIZONTAL);
+	SetupPenPanes(trackInfoPanel, penPaneSizer);
+	mainSizer->Add(penPaneSizer, 0, wxALL, FromDIP(5));
+
+	auto button = new wxButton(trackInfoPanel, wxID_ANY, "Save As...");
+
+	mainSizer->AddStretchSpacer();
+	
+	mainSizer->AddSpacer(FromDIP(5));
+
+	trackInfoPanel->SetSizer(mainSizer);
+
+
+	return trackInfoPanel;
+}
+
 
 
 wxIMPLEMENT_APP(MyApp);
@@ -161,27 +233,44 @@ bool MyApp::OnInit()
 	return true;
 }
 
+
+void MyFrame::SetupInfoPanes(wxWindow* parent, wxSizer* sizer)
+{
+	for (const auto& color : niceColors)
+	{
+		auto colorPane = new ColorPane(parent, wxID_ANY, wxColour(color));
+
+		colorPane->Bind(wxEVT_LEFT_DOWN, [this, colorPane](wxMouseEvent& event)
+			{ SelectColorPane(colorPane); });
+
+		colorPanes.push_back(colorPane);
+		sizer->Add(colorPane, 0, wxRIGHT | wxBOTTOM, FromDIP(5));
+	}
+}
+
+
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
-	: wxFrame(NULL, wxID_ANY, title, pos, size)
+	: wxFrame(nullptr, wxID_ANY, title, pos, size)
 {
 	
-	
-	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
 
 	splitter->SetMinimumPaneSize(FromDIP(150));
 	 
-	auto trackInfoPanel = new wxPanel(splitter, wxID_ANY);
-	auto tracksPanel = canvas->CreateMIDIPanel(splitter);
-	tracksPanel->SetBackgroundColour(wxColor("#ffffff"));
+	auto trackInfoPanel = BuildTrackInfoPanel(splitter);
+	canvas = new MidiFrame(splitter, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+	
 
-	splitter->SplitVertically(trackInfoPanel, tracksPanel);
-	splitter->SetSashPosition(FromDIP(150));
+	splitter->SplitVertically(trackInfoPanel, canvas);
+	splitter->SetSashPosition(FromDIP(220));
 
 	this->SetSize(FromDIP(800), FromDIP(500));
 	this->SetMinSize({ FromDIP(400), FromDIP(200) });
 	
-	tracksPanel->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
+	canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
 	
+	//these commented out lines (even the 3 at the bottom) are what was making the program window bug out, they'll need to be reimplemented at some point
+
 	//wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
 
@@ -189,8 +278,8 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 
 	
 	
-	tracksPanel->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
-	tracksPanel->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
+	canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
+	canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
 
 
 	rectCount = canvas->getObjectCount();
@@ -203,6 +292,29 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	CreateStatusBar(1);
 	SetStatusText("Ready", 0);
 	
+	
+}
+
+void MyFrame::SelectColorPane(ColorPane* pane)
+{
+	for (auto colorPane : colorPanes)
+	{
+		colorPane->selected = (colorPane == pane);
+		colorPane->Refresh();
+	}
+
+	//canvas->currentColor = pane->color;
+}
+
+void MyFrame::SelectPenPane(PenSizePane* pane)
+{
+	for (auto penPane : penPanes)
+	{
+		penPane->selected = (penPane == pane);
+		penPane->Refresh();
+	}
+
+	//canvas->currentWidth = pane->penWidth;
 }
 
 void MyFrame::OnAddButtonClick(wxCommandEvent& event)
