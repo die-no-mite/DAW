@@ -1,11 +1,12 @@
-#include <array>
+
 
 #include "selectionbox.h"
 #include "objectspace.h"
 
 #include <wx/graphics.h>
 #include <iostream>
-/*
+#include <array>
+
 enum class SelectionBox::DraggableElement
 {
     TopLeftHandle,
@@ -179,4 +180,3 @@ wxPoint2DDouble SelectionBox::GetBottomRightHandleCenter() const
 {
     return ObjectSpace::ToScreenCoordinates(object.get(), object.get().boundingBox.GetRightBottom());
 }
-*/

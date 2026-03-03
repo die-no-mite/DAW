@@ -12,17 +12,18 @@ struct GraphicMIDIEvent
 	wxString text;
 	wxAffineMatrix2D transform;
 	Rect rect;
-	/*
+	Transformation transformation;
+	
 	GraphicMIDIEvent(wxRect2DDouble tnote, wxColor tcolor, wxString ttext, wxAffineMatrix2D ttransform, Transformation transformation = {})
-		: boundingbox{ rect.rect }, transformation{ transformation }
+		: boundingBox{ rect.rect }, transformation{ transformation }
 	{
-		wxRect2DDouble note = tnote;
-		wxColor color = tcolor;
-		wxString text = ttext;
-		wxAffineMatrix2D transform = ttransform;
+		note = tnote;
+		color = tcolor;
+		text = ttext;
+		transform = ttransform;
 	}
 
-	const wxRect2DDouble boundingbox;
-	Transformation transformation;
-	*/
+	const wxRect2DDouble boundingBox;
+	
+	
 };

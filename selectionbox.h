@@ -6,7 +6,7 @@
 
 #include "graphicMIDIEvent.h"
 #include "objectspace.h"
-/*
+
 struct SelectionBox
 {
     SelectionBox(GraphicMIDIEvent& object, double handleW) : object{ object }, handleWidth(handleW) {}
@@ -43,4 +43,3 @@ private:
     wxPoint2DDouble lastDragPoint{};
     double handleWidth;
 };
-*/
