@@ -149,7 +149,7 @@ void MidiFrame::OnMouseMove(wxMouseEvent& event)
 
 			inv.Invert();
 			extendVector = inv.TransformDistance(extendVector);
-			draggedObj.get().transformation.scaleX(extendVector.m_x/2, extendVector.m_y/2);
+			draggedObj->transform.Scale(extendVector.m_x/2, extendVector.m_y/2);
 			
 		}
 	}
