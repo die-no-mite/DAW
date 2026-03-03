@@ -1,11 +1,17 @@
 #pragma once
 
-#include <wx/wx.h>
+
+#include "objectspace.h"
+#include "transformations.h"
 
 struct GraphicMIDIEvent
 {
-	wxRect2DDouble note;
-	wxColor color;
-	wxString text;
-	wxAffineMatrix2D transform;
+	
+	
+
+	GraphicMIDIEvent(wxRect2DDouble note, wxColor color, wxString text, wxAffineMatrix2D transform, Transformation transformation = {})
+		: boundingbox{ rect.rect }, transformation{ transformation } {}
+
+	const wxRect2DDouble boundingbox;
+	Transformation transformation;
 };

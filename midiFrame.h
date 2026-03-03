@@ -36,9 +36,11 @@ private:
 
 	std::list<GraphicMIDIEvent> noteList;
 	
-	GraphicMIDIEvent* draggedObj;
+	GraphicMIDIEvent *draggedObj;
+
 	bool shouldExtend;
 	bool selected;
 
 	wxPoint2DDouble lastDragOrigin;
+	
 };
