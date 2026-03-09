@@ -8,14 +8,14 @@
 wxDECLARE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDECLARE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 
-class MidiFrame : public wxWindow
+class MidiFrame : public wxPanel
 {
 public:
 	MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);
 	
 	virtual ~MidiFrame(){}
 
-	void addNote(int width, int height, int centerX, int centerY, wxColor color, const std::string& text);
+	void addNote(int width, int height, int centerX, int centerY, wxColor color);
 	void removeTopNote();
 
 	int getObjectCount() { return noteList.size(); }
@@ -31,8 +31,8 @@ private:
 	void finishDrag();
 	void finishExtend();
 
-	void sendNoteAddedEvent(const wxString& noteTitle);
-	void sendNoteRemovedEvent(const wxString& noteTitle);
+	void sendNoteAddedEvent();
+	void sendNoteRemovedEvent();
 
 	std::list<GraphicMIDIEvent> noteList;
 	

@@ -1,5 +1,5 @@
 
-
+/*
 #include "selectionbox.h"
 #include "objectspace.h"
 
@@ -180,3 +180,4 @@ wxPoint2DDouble SelectionBox::GetBottomRightHandleCenter() const
 {
     return ObjectSpace::ToScreenCoordinates(object.get(), object.get().boundingBox.GetRightBottom());
 }
+*/

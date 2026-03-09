@@ -353,3 +353,8 @@
 
 		return true;
 	}
+
+	int MidiFile::getTrackNum()
+	{
+		return nTrackChunks;
+	}

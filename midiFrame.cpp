@@ -1,11 +1,12 @@
 #include "midiFrame.h"
 #include <wx/graphics.h>
 #include <wx/dcbuffer.h>
+#include <time.h>
 
 wxDEFINE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDEFINE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 
-MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size) : wxWindow(parent, id, pos, size)
+MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size) : wxPanel(parent, id, pos, size)
 {
 	this->SetBackgroundStyle(wxBG_STYLE_PAINT);
 
@@ -14,12 +15,8 @@ MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const 
 	this->Bind(wxEVT_MOTION, &MidiFrame::OnMouseMove, this);
 	this->Bind(wxEVT_LEFT_UP, &MidiFrame::OnMouseUp, this);
 	this->Bind(wxEVT_LEAVE_WINDOW, &MidiFrame::OnMouseLeave, this);
-	this->Bind(wxEVT_LEFT_DCLICK, &MidiFrame::OnMouseEvent, this);
+	this->Bind(wxEVT_RIGHT_DOWN, &MidiFrame::OnMouseEvent, this);
 
-	
-	addNote(this->FromDIP(100), this->FromDIP(80), this->FromDIP(210), this->FromDIP(140), *wxRED, "Note #1");
-	addNote(this->FromDIP(130), this->FromDIP(110), this->FromDIP(280), this->FromDIP(210), *wxBLUE, "Note #2");
-	addNote(this->FromDIP(110), this->FromDIP(110), this->FromDIP(300), this->FromDIP(120), wxColor(255, 0, 255, 120), "Note #3");
 
 	this->draggedObj = nullptr;
 	this->shouldExtend = false;
@@ -28,7 +25,7 @@ MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const 
 }
 
 
-void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor color, const std::string& text)
+void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor color)
 {
 	GraphicMIDIEvent obj{
 		{-width / 2.0,
@@ -36,7 +33,6 @@ void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor
 		static_cast<double>(width),
 		static_cast<double>(height)},
 		color,
-		text,
 		{}
 	};
 	obj.transform.Translate(static_cast<double>(centerX), static_cast<double>(centerY));
@@ -44,7 +40,7 @@ void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor
 	
 	this->noteList.push_back(obj);
 	
-	sendNoteAddedEvent(text);
+	sendNoteAddedEvent();
 	Refresh();
 }
 
@@ -52,15 +48,14 @@ void MidiFrame::removeTopNote()
 {
 	if (!this->noteList.empty() && draggedObj == nullptr)
 	{
-		auto text = this->noteList.back().text;
 		this->noteList.pop_back();
 
-		sendNoteRemovedEvent(text);
+		sendNoteRemovedEvent();
 		Refresh();
 	}
 }
 
-//Removes Note when the note is double clicked
+//Removes Note when the note is right clicked
 void MidiFrame::OnMouseEvent(wxMouseEvent &evt)
 {
 	removeTopNote();
@@ -81,14 +76,6 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 			
 			gc->SetBrush(wxBrush(object.color));
 			gc->DrawRectangle(object.note.m_x, object.note.m_y, object.note.m_width, object.note.m_height);
-
-			gc->SetFont(*wxNORMAL_FONT, *wxWHITE);
-
-			
-			double textWidth, textHeight;
-			gc->GetTextExtent(object.text, &textWidth, &textHeight);
-
-			gc->DrawText(object.text, object.note.m_x + object.note.m_width / 2.0 - textWidth / 2.0, object.note.m_y + object.note.m_height / 2.0 - textHeight / 2.0);
 
 		}
 		delete gc;
@@ -143,13 +130,33 @@ void MidiFrame::OnMouseMove(wxMouseEvent& event)
 		}
 		else
 		{
-			//doesnt work
-			auto extendVector = event.GetPosition() - lastDragOrigin;
+			
+			
+			auto dragVector = event.GetPosition() - lastDragOrigin;
 			auto inv = draggedObj->transform;
+			
+			
 
-			inv.Invert();
-			extendVector = inv.TransformDistance(extendVector);
-			draggedObj->transform.Scale(extendVector.m_x/2, extendVector.m_y/2);
+			if (lastDragOrigin.m_x < event.GetPosition().x)
+			{
+				inv.Invert();
+				dragVector = inv.TransformDistance(dragVector);
+
+				//draggedObj->transform.Translate(dragVector.m_x, dragVector.m_y);
+				
+				draggedObj->transform.Scale(1.01, 1);
+			}
+			else if (lastDragOrigin.m_x > event.GetPosition().x)
+			{
+				inv.Invert();
+				
+				
+				draggedObj->transform.Scale(0.99, 1);
+			}
+			
+			Refresh();
+			lastDragOrigin = event.GetPosition();
+
 			
 		}
 	}
@@ -177,20 +184,20 @@ void MidiFrame::finishExtend()
 	shouldExtend = false;
 }
 
-void MidiFrame::sendNoteAddedEvent(const wxString& rectTitle)
+void MidiFrame::sendNoteAddedEvent()
 {
 	wxCommandEvent event(CANVAS_RECT_ADDED, GetId());
 	event.SetEventObject(this);
-	event.SetString(rectTitle);
+	//event.SetString(rectTitle);
 
 	ProcessWindowEvent(event);
 }
 
-void MidiFrame::sendNoteRemovedEvent(const wxString& rectTitle)
+void MidiFrame::sendNoteRemovedEvent()
 {
 	wxCommandEvent event(CANVAS_RECT_REMOVED, GetId());
 	event.SetEventObject(this);
-	event.SetString(rectTitle);
+	//event.SetString(rectTitle);
 
 	ProcessWindowEvent(event);
 }

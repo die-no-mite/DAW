@@ -19,6 +19,7 @@
 #include <wx/wrapsizer.h>
 #include <wx/splitter.h>
 
+
 //#pragma comment(lib, "winmm.lib")
 
 
@@ -185,17 +186,18 @@ bool MyApp::OnInit()
 	if (!wxApp::OnInit())
 		return false;
 
-	MyFrame *frame = new MyFrame("DAW", wxDefaultPosition, wxDefaultSize);
-	frame->Show(true);
+	
 
-	MidiFile midi;
+	MidiFile *midi = new MidiFile;
 
 	size_t nCurrentNote[16]{ 0 };
 
 	double dSongTime = 0.0;
 	double dRunTime = 0.0;
 	uint32_t nMidiClock = 0;
-
+	
+	MyFrame *frame = new MyFrame("DAW", wxDefaultPosition, wxDefaultSize);
+	frame->Show(true);
 
 	//wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -213,20 +215,61 @@ void MyFrame::SetupInfoPanes(wxWindow* parent, wxSizer* sizer)
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	: wxFrame(nullptr, wxID_ANY, title, pos, size)
 {
+	MidiFile *midi = new MidiFile;
+	midi->ParseFile("battle-theme.mid");
+
+	//gets the number of tracks from the midi file and creates a vector (dynamic array) of panels of the size of the track number
+	int trackNumber = midi->getTrackNum();
+	std::vector<MidiFrame*> trackList;
 	
+
 	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
 
 	splitter->SetMinimumPaneSize(FromDIP(150));
 	 
 	auto trackInfoPanel = BuildTrackInfoPanel(splitter);
 	canvas = new MidiFrame(splitter, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+
+	wxBoxSizer* trackAreaSizer = new wxBoxSizer(wxVERTICAL);
+	wxSizer* trackSizer = new wxBoxSizer(wxVERTICAL);
+
+	trackAreaSizer->Add(splitter, 1, wxEXPAND, 0);
+	trackAreaSizer->Add(canvas, 1, wxEXPAND | wxALL, 5);
 	
+
+	
+	if (trackNumber == 1) //sets up track if there's only one track
+	{
+		trackList[0] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+		trackList[0]->SetBackgroundColour(wxColor(0, 0, 0));
+		trackSizer->Add(trackList[0], 1, wxEXPAND | wxALL, 5);
+	}
+	else 
+	{
+		//fills vector with midiframes per track and adds them to the sizer
+		for (int i = 0; i < trackNumber; i++)
+		{
+			trackList[i] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+			trackList[i]->SetBackgroundColour(wxColor(0,0,0));
+			if (i == 0)
+				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
+			else if (i == trackNumber - 1)
+				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
+			else
+				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
+		}
+	}
+	
+	canvas->SetSizerAndFit(trackSizer);
 
 	splitter->SplitVertically(trackInfoPanel, canvas);
 	splitter->SetSashPosition(FromDIP(220));
 
 	this->SetSize(FromDIP(800), FromDIP(500));
 	this->SetMinSize({ FromDIP(400), FromDIP(200) });
+	
+	
+	
 	
 	canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
 	
@@ -268,7 +311,7 @@ void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 
 	rectCount++;
 	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen),
-		wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
+		wxColor(colorDistrib(randomGen)));
 }
 
 void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
@@ -290,7 +333,7 @@ void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 
 	rectCount++;
 	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y,
-		wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
+		wxColor(colorDistrib(randomGen)));
 	
 }
 
