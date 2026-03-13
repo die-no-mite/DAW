@@ -1,3 +1,4 @@
+
 #ifndef MIDIC_H
 #define MIDIC_H
 
@@ -8,6 +9,9 @@
 #include <fstream>
 #include <algorithm>
 #include <iostream>
+#include <wx/wx.h>
+
+
 
 struct MidiNote;
 struct MidiTrack;
@@ -47,18 +51,27 @@ class MidiFile {
 
     public:
         MidiFile();
-        explicit MidiFile(const std::string& sFileName);
+        explicit MidiFile(const std::string& sFileName, wxWindow* window);
 
         void Clear();
-        bool ParseFile(const std::string& sFileName);
+        bool ParseFile(const std::string& sFileName, wxWindow* window);
 
         int getTrackNum();
 
+        MidiFrame *getTrackFrameList(int index);
+
+        void setTrackFrameList(int index, MidiFrame* panel);
+
+        int getTrackIndex();
+        void setTrackIndex(int index);
+
     public:
         std::vector<MidiTrack> vecTracks;
+        std::vector<MidiFrame*> trackFrameList;
         uint32_t m_nTempo = 0;
         uint32_t m_nBPM = 0;
-        uint16_t nTrackChunks = 0;
+        int numTracks;
+        int currentTrackIndex;
 };
 
 #endif

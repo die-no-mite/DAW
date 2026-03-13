@@ -1,3 +1,4 @@
+/*
 #include "MidiC.h"
 #include "MidiEvent.h"
 #include "MidiNote.h"
@@ -8,14 +9,17 @@
 
 
 
+#include <wx/wx.h>
+
+
 
 	MidiFile::MidiFile()
 	{
 	}
 
-	MidiFile::MidiFile(const std::string& sFileName)
+	MidiFile::MidiFile(const std::string& sFileName, wxWindow* window)
 	{
-		ParseFile(sFileName);
+		ParseFile(sFileName, window);
 	}
 
 	void MidiFile::Clear()
@@ -23,15 +27,16 @@
 
 	}
 
-	bool MidiFile::ParseFile(const std::string& sFileName)
+	bool MidiFile::ParseFile(const std::string& sFileName, wxWindow* window)
 	{
+		trackFrameList[0] = NULL;
 		// Open the MIDI File as a stream
 		std::ifstream ifs;
 		ifs.open(sFileName, std::fstream::in | std::ios::binary);
+		
 		if (!ifs.is_open())
 			return false;
-
-
+		
 		// Helper Utilities ====================
 
 		// Swaps byte order of 32-bit integer
@@ -101,8 +106,10 @@
 		ifs.read((char*)&n16, sizeof(uint16_t));
 		uint16_t nDivision = Swap16(n16);
 
+
 		for (uint16_t nChunk = 0; nChunk < nTrackChunks; nChunk++)
 		{
+			
 			std::cout << "===== NEW TRACK" << std::endl;
 			// Read Track Header
 			ifs.read((char*)&n32, sizeof(uint32_t));
@@ -356,5 +363,26 @@
 
 	int MidiFile::getTrackNum()
 	{
-		return nTrackChunks;
+		return numTracks; //returns the number of tracks in the midi file
 	}
+
+	MidiFrame* MidiFile::getTrackFrameList(int index)
+	{
+		return trackFrameList[index]; //returns the MidiFrame at the given index
+	}
+
+	void MidiFile::setTrackFrameList(int index, MidiFrame* panel)
+	{
+		trackFrameList[index] = panel; //adds a new MidiFrame to the track frame list
+	}
+
+	int MidiFile::getTrackIndex()
+	{
+		return currentTrackIndex; //returns the current track index for use outside of the MidiC class
+	}
+
+	void MidiFile::setTrackIndex(int index)
+	{
+		currentTrackIndex = index;
+	}
+	*/
