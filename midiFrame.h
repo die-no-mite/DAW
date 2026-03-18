@@ -4,35 +4,20 @@
 #include <list>
 
 #include "graphicMIDIevent.h"
-#include "MidiC.h"
-
-#include <cstdint>
-#include <string>
-#include <vector>
-
-#include <fstream>
-#include <algorithm>
-#include <iostream>
-
-
 
 wxDECLARE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDECLARE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 
-
-
-
-
 class MidiFrame : public wxPanel
 {
 public:
-	MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, MidiFile* file);
+	MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);
 	
 	virtual ~MidiFrame(){}
 
 	void addNote(int width, int height, int centerX, int centerY, wxColor color);
 	void removeTopNote();
-    MidiFile *midi;
+
 	int getObjectCount() { return noteList.size(); }
 private:
 	
@@ -57,7 +42,5 @@ private:
 	bool selected;
 
 	wxPoint2DDouble lastDragOrigin;
-
-    
 	
 };

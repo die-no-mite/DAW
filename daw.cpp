@@ -5,14 +5,13 @@
 #include <vector>
 #include <random>
 
-
+#include "MidiC.h"
 #include "MidiEvent.h"
 #include "MidiNote.h"
 #include "MidiTrack.h"
 #include "midiFrame.h"
-#include "MidiC.h"
-//#include "midiFrame.cpp"
 #include "ColorPane.h"
+#include "trackFrame.h"
 
 
 
@@ -38,7 +37,7 @@ class MyFrame : public wxFrame
 public:
 	void SetupInfoPanes(wxWindow* parent, wxSizer* sizer);
 	MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
-	
+
 	
 
 private:
@@ -57,8 +56,6 @@ private:
 	
 
 	MidiFrame *canvas;
-	MidiFile* midi = new MidiFile;
-	
 
 	int rectCount = 0;
 	std::mt19937 randomGen;
@@ -192,7 +189,7 @@ bool MyApp::OnInit()
 
 	
 
-	
+	MidiFile *midi = new MidiFile;
 
 	size_t nCurrentNote[16]{ 0 };
 
@@ -219,82 +216,84 @@ void MyFrame::SetupInfoPanes(wxWindow* parent, wxSizer* sizer)
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	: wxFrame(nullptr, wxID_ANY, title, pos, size)
 {
-	MidiFile* midi = new MidiFile;
-	bool test = midi->ParseFile("battle-theme.mid", this);
+	MidiFile *midi = new MidiFile;
+	bool test = midi->ParseFile("battle-theme.mid");
 
+	//gets the number of tracks from the midi file and creates a vector (dynamic array) of panels of the size of the track number
 	int trackNumber = midi->getTrackNum();
+	trackNumber = 1;
+	std::vector<MidiFrame*> trackList(trackNumber);
 	
-	
-	//splitter used to seperate the track info panel with the track area panel
+
 	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
 
 	splitter->SetMinimumPaneSize(FromDIP(150));
 	 
 	auto trackInfoPanel = BuildTrackInfoPanel(splitter);
-	wxPanel* trackPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
-	trackPanel->SetBackgroundColour(wxColor(0, 0, 0));
+	canvas = new MidiFrame(splitter, wxID_ANY, wxDefaultPosition, wxSize(200,100));
+	canvas->SetBackgroundColour(wxColor(0, 0, 0));
 
 	//sizers to handle both the splitter/track area panel and the track panels that sit within the track area panel
 	wxBoxSizer *mainSizer = new wxBoxSizer(wxHORIZONTAL);
 	wxSizer *trackSizer = new wxBoxSizer(wxHORIZONTAL);
 
-	mainSizer->Add(trackInfoPanel, 1, wxEXPAND, 0);
-	mainSizer->Add(trackPanel, 1, wxEXPAND, 0);
+	mainSizer->Add(splitter, 1, wxEXPAND, 0);
+	
+
+	
 	
 	if (test == false) //if statement is currently here just for testing, the code within will be eventually be used in the next if statement
 	{
-		//sets the track index to zero, used for passing the index value through event calls
-		midi->setTrackIndex(0); 
+		
 		//creates a new MidiFrame in the vector of Midi Frames within the midi object, taking in the trackPanel as its parent for use later in the sizer
-		midi->setTrackFrameList(0, (new MidiFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100), midi)));
-		midi->getTrackFrameList(0)->SetBackgroundColour(wxColor(70, 70, 70));
+		trackList[0] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
+		trackList[0]->SetBackgroundColour(wxColor(70, 70, 70));
 		// adds the newly created MidiFrame into the sizer
-		trackSizer->Add(midi->getTrackFrameList(0), 1, wxALL, 5);
+		trackSizer->Add(trackList[0], 1, wxALL, 5);
 
-		//binds the add rect, remove rect, and double click events to the MidiFrame 
-		midi->getTrackFrameList(0)->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
-		midi->getTrackFrameList(0)->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
-		midi->getTrackFrameList(0)->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
 	}
 	
+
+	trackNumber = 0;
 	
 	if (trackNumber == 1) //sets up track if there's only one track
 	{
-		midi->setTrackIndex(0);
-		midi->setTrackFrameList(0, (new MidiFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100), midi)));
-		midi->getTrackFrameList(0)->SetBackgroundColour(wxColor(0, 0, 0));
-		trackSizer->Add(midi->getTrackFrameList(0), 1, wxEXPAND | wxALL, 5);
+		trackList[0] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+		trackList[0]->SetBackgroundColour(wxColor(0, 0, 0));
+		trackSizer->Add(trackList[0], 1, wxEXPAND | wxALL, 5);
 	}
 	else 
 	{
 		//fills vector with midiframes per track and adds them to the sizer
 		for (int i = 0; i < trackNumber; i++)
 		{
-			midi->setTrackIndex(i);
-			midi->setTrackFrameList(i, (new MidiFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100), midi)));
-			midi->getTrackFrameList(i)->SetBackgroundColour(wxColor(0,0,0));
+			trackList[i] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+			trackList[i]->SetBackgroundColour(wxColor(0,0,0));
 			if (i == 0)
-				trackSizer->Add(midi->getTrackFrameList(i), 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
+				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
 			else if (i == trackNumber - 1)
-				trackSizer->Add(midi->getTrackFrameList(i), 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
+				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
 			else
-				trackSizer->Add(midi->getTrackFrameList(i), 1, wxEXPAND | wxLEFT | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
+				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
 		}
 	}
 	
-	trackPanel->SetSizerAndFit(trackSizer);
 	
-	
-	splitter->SplitVertically(trackInfoPanel, trackPanel);
+
+	canvas->SetSizerAndFit(trackSizer);
+
+
+	splitter->SplitVertically(trackInfoPanel, canvas);
 	splitter->SetSashPosition(FromDIP(220));
 
 	this->SetSize(FromDIP(800), FromDIP(500));
 	this->SetMinSize({ FromDIP(400), FromDIP(200) });
+	this->SetSizerAndFit(mainSizer);
 	
 	
 	
 	
-	//canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
+	canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
 	
 	//these commented out lines (even the 3 at the bottom) are what was making the program window bug out, they'll need to be reimplemented at some point
 
@@ -305,8 +304,8 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 
 	
 	
-	//canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
-	//canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
+	canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
+	canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
 
 
 	//rectCount = canvas->getObjectCount();
@@ -325,7 +324,6 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 
 void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 {
-	int index = midi->getTrackIndex();
 	std::uniform_int_distribution<> sizeDistrib (this->FromDIP(50), this->FromDIP(100));
 	std::uniform_int_distribution<> xDistrib(0, canvas->GetSize().GetWidth());
 	std::uniform_int_distribution<> yDistrib(0, canvas->GetSize().GetHeight());
@@ -334,21 +332,20 @@ void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 	std::uniform_int_distribution<> colorDistrib(0, 0xFFFFFF);
 
 	rectCount++;
-	midi->getTrackFrameList(index)->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen),
+	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen),
 		wxColor(colorDistrib(randomGen)));
 }
 
 void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
 {
-	int index = midi->getTrackIndex();
-	midi->getTrackFrameList(index)->removeTopNote();
+	canvas->removeTopNote();
 }
 
 //double click to add a note, currently breaks double click to remove
 //need to find a way to detect when the mouse is hovering over an existing note and disable this function when true
 void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 {
-	int index = midi->getTrackIndex();
+	
 	std::uniform_int_distribution<> sizeDistrib(this->FromDIP(50), this->FromDIP(100));
 	std::uniform_real_distribution<> angleDistrib(0.0, M_PI * 2.0);
 
@@ -357,7 +354,7 @@ void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 	wxPoint mousePos = evt.GetPosition();
 
 	rectCount++;
-	midi->getTrackFrameList(index)->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y,
+	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y,
 		wxColor(colorDistrib(randomGen)));
 	
 }
@@ -384,8 +381,8 @@ wxPanel* MyFrame::createButtonPanel(wxWindow* parent)
 
 	panel->SetSizer(sizer);
 
-	//addNoteButton->Bind(wxEVT_BUTTON, &MyFrame::OnAddButtonClick, this);
-	//removeLastButton->Bind(wxEVT_BUTTON, &MyFrame::OnRemoveButtonClick, this);
+	addNoteButton->Bind(wxEVT_BUTTON, &MyFrame::OnAddButtonClick, this);
+	removeLastButton->Bind(wxEVT_BUTTON, &MyFrame::OnRemoveButtonClick, this);
 
 	return panel;
 }
