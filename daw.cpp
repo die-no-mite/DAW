@@ -4,6 +4,7 @@
 #include <array>
 #include <vector>
 #include <random>
+#include <filesystem>
 
 #include "MidiC.h"
 #include "MidiEvent.h"
@@ -42,7 +43,7 @@ public:
 
 private:
 	void SetupPenPanes(wxWindow* parent, wxSizer* sizer);
-	wxPanel *BuildTrackInfoPanel(wxWindow* parent);
+	wxPanel *BuildTrackInfoPanel(wxWindow* parent, int trackNumber);
 
 	void OnAddButtonClick(wxCommandEvent &event);
 	void OnRemoveButtonClick(wxCommandEvent &event);
@@ -52,6 +53,8 @@ private:
 	void OnNoteRemoved(wxCommandEvent& event);
 
 	wxPanel* createButtonPanel(wxWindow* parent);
+
+	std::string ResolveMidiPath(std::string midiPath) const;
 
 	
 
@@ -150,7 +153,7 @@ enum
 
 
 
-wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
+wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 {
 	auto trackInfoPanel = new wxScrolled<wxPanel>(parent, wxID_ANY);
 	trackInfoPanel->SetScrollRate(0, FromDIP(10));
@@ -159,14 +162,41 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
 	trackInfoPanel->SetBackgroundColour(wxColor(isDark ? darkBackground : lightBackground));
 
 	auto mainSizer = new wxBoxSizer(wxVERTICAL);
+	auto perTrackSizer = new wxBoxSizer(wxVERTICAL);
 
-	auto text = new wxStaticText(trackInfoPanel, wxID_ANY, "Tracks");
+	auto text = new wxStaticText(trackInfoPanel, wxID_ANY, "Track Information:");
+	auto text2 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
+	auto text3 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
+	auto text4 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
+	
 	mainSizer->Add(text, 0, wxALL, FromDIP(5));
 
-	auto infoPaneSizer = new wxWrapSizer(wxHORIZONTAL);
-	SetupInfoPanes(trackInfoPanel, infoPaneSizer);
+	std::vector<wxPanel*> trackInfoList(trackNumber);
 
-	mainSizer->Add(infoPaneSizer, 0, wxALL, FromDIP(5));
+	std::string trackNumberText = "";
+	for (int i = 0; i < trackNumber; i++)
+	{
+		trackInfoList[i] = new wxPanel(trackInfoPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
+		trackInfoList[i]->SetBackgroundColour(wxColor(0, 0, 0));
+		mainSizer->Add(trackInfoList[i], 0, wxEXPAND | wxALL, 5);
+		/*
+		trackNumberText = "Track #";
+		trackNumberText += std::to_string(i+1);
+		perTrackSizer = new wxBoxSizer(wxVERTICAL);
+		text = new wxStaticText(trackInfoList[i], wxID_ANY, trackNumberText);
+		text->SetForegroundColour(wxColor(255, 255, 255));
+		perTrackSizer->Add(text, 0, wxALL, FromDIP(5));
+		text2 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		perTrackSizer->Add(text2, 0, wxALL, FromDIP(5));
+		text3 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		perTrackSizer->Add(text3, 0, wxALL, FromDIP(5));
+		text4 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		perTrackSizer->Add(text4, 0, wxALL, FromDIP(5));
+		
+
+		trackInfoList[i]->SetSizerAndFit(perTrackSizer);
+		*/
+	}
 
 	mainSizer->AddStretchSpacer();
 	
@@ -217,11 +247,12 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	: wxFrame(nullptr, wxID_ANY, title, pos, size)
 {
 	MidiFile *midi = new MidiFile;
-	bool test = midi->ParseFile("battle-theme.mid");
+	std::string pathName = ResolveMidiPath("battle-theme.mid");
+	bool test = midi->ParseFile(pathName);
 
 	//gets the number of tracks from the midi file and creates a vector (dynamic array) of panels of the size of the track number
 	int trackNumber = midi->getTrackNum();
-	trackNumber = 1;
+	
 	std::vector<MidiFrame*> trackList(trackNumber);
 	
 
@@ -229,13 +260,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 
 	splitter->SetMinimumPaneSize(FromDIP(150));
 	 
-	auto trackInfoPanel = BuildTrackInfoPanel(splitter);
+	auto trackInfoPanel = BuildTrackInfoPanel(splitter, trackNumber);
 	canvas = new MidiFrame(splitter, wxID_ANY, wxDefaultPosition, wxSize(200,100));
-	canvas->SetBackgroundColour(wxColor(0, 0, 0));
+	canvas->SetBackgroundColour(wxColor(70, 70, 70));
 
 	//sizers to handle both the splitter/track area panel and the track panels that sit within the track area panel
 	wxBoxSizer *mainSizer = new wxBoxSizer(wxHORIZONTAL);
-	wxSizer *trackSizer = new wxBoxSizer(wxHORIZONTAL);
+	wxSizer *trackSizer = new wxBoxSizer(wxVERTICAL);
 
 	mainSizer->Add(splitter, 1, wxEXPAND, 0);
 	
@@ -247,18 +278,20 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 		
 		//creates a new MidiFrame in the vector of Midi Frames within the midi object, taking in the trackPanel as its parent for use later in the sizer
 		trackList[0] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
-		trackList[0]->SetBackgroundColour(wxColor(70, 70, 70));
+		trackList[0]->SetBackgroundColour(wxColor(0, 0, 0));
 		// adds the newly created MidiFrame into the sizer
-		trackSizer->Add(trackList[0], 1, wxALL, 5);
+		trackSizer->Add(trackList[0], 0, wxEXPAND | wxALL, 5);
 
 	}
-	
 
-	trackNumber = 0;
+	auto text = new wxStaticText(canvas, wxID_ANY, "Tracks:");
+	text->SetForegroundColour(wxColor(255, 255, 255));
+	trackSizer->Add(text, 0, wxALL, FromDIP(5));
+	
 	
 	if (trackNumber == 1) //sets up track if there's only one track
 	{
-		trackList[0] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+		trackList[0] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
 		trackList[0]->SetBackgroundColour(wxColor(0, 0, 0));
 		trackSizer->Add(trackList[0], 1, wxEXPAND | wxALL, 5);
 	}
@@ -267,14 +300,14 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 		//fills vector with midiframes per track and adds them to the sizer
 		for (int i = 0; i < trackNumber; i++)
 		{
-			trackList[i] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+			trackList[i] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
 			trackList[i]->SetBackgroundColour(wxColor(0,0,0));
 			if (i == 0)
-				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
+				trackSizer->Add(trackList[i], 0, wxEXPAND | wxALL | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
 			else if (i == trackNumber - 1)
-				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
+				trackSizer->Add(trackList[i], 0, wxEXPAND | wxALL | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
 			else
-				trackSizer->Add(trackList[i], 1, wxEXPAND | wxLEFT | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
+				trackSizer->Add(trackList[i], 0, wxEXPAND | wxALL | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
 		}
 	}
 	
@@ -385,6 +418,26 @@ wxPanel* MyFrame::createButtonPanel(wxWindow* parent)
 	removeLastButton->Bind(wxEVT_BUTTON, &MyFrame::OnRemoveButtonClick, this);
 
 	return panel;
+}
+
+std::string MyFrame::ResolveMidiPath(std::string sMidiPath) const
+{
+	namespace fs = std::filesystem;
+
+	std::vector<fs::path> candidates = {
+		fs::path(sMidiPath),
+		fs::path("./") / sMidiPath,
+		fs::path("../") / sMidiPath,
+		fs::path("../../") / sMidiPath
+	};
+
+	for (const auto& p : candidates)
+	{
+		if (fs::exists(p))
+			return p.string();
+	}
+
+	return sMidiPath;
 }
 
 /*

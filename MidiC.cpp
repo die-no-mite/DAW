@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <fstream>
 
 
 
@@ -106,6 +106,7 @@
 
 		for (uint16_t nChunk = 0; nChunk < nTrackChunks; nChunk++)
 		{
+			totalTracks++;
 			std::cout << "===== NEW TRACK" << std::endl;
 			// Read Track Header
 			ifs.read((char*)&n32, sizeof(uint32_t));
@@ -359,5 +360,5 @@
 
 	int MidiFile::getTrackNum()
 	{
-		return nTrackChunks;
+		return totalTracks;
 	}
