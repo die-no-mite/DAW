@@ -1,11 +1,12 @@
-#include <array>
 
+/*
 #include "selectionbox.h"
 #include "objectspace.h"
 
 #include <wx/graphics.h>
 #include <iostream>
-/*
+#include <array>
+
 enum class SelectionBox::DraggableElement
 {
     TopLeftHandle,

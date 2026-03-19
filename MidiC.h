@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iostream>
 
+
 struct MidiNote;
 struct MidiTrack;
 struct MidiEvent;
@@ -52,10 +53,14 @@ class MidiFile {
         void Clear();
         bool ParseFile(const std::string& sFileName);
 
+        int getTrackNum();
+
     public:
         std::vector<MidiTrack> vecTracks;
         uint32_t m_nTempo = 0;
         uint32_t m_nBPM = 0;
+        uint16_t nTrackChunks = 0;
+        int totalTracks = 0;
 };
 
 #endif

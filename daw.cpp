@@ -1,9 +1,10 @@
 
-
+#define _CRT_SECURE_NO_WARNINGS
 #include <fstream>
 #include <array>
 #include <vector>
 #include <random>
+#include <filesystem>
 
 #include "MidiC.h"
 #include "MidiEvent.h"
@@ -11,6 +12,8 @@
 #include "MidiTrack.h"
 #include "midiFrame.h"
 #include "ColorPane.h"
+#include "trackFrame.h"
+#include "TrackManager.h"
 
 
 
@@ -19,10 +22,11 @@
 #include <wx/wrapsizer.h>
 #include <wx/splitter.h>
 
+
 //#pragma comment(lib, "winmm.lib")
 
 
-
+const std::string filePath = "C:/Users/Public/Documents/DAW";
 
 class MyApp : public wxApp
 {
@@ -40,7 +44,12 @@ public:
 
 private:
 	void SetupPenPanes(wxWindow* parent, wxSizer* sizer);
-	wxPanel *BuildTrackInfoPanel(wxWindow* parent);
+	wxPanel *BuildTrackInfoPanel(wxWindow* parent, int trackNumber);
+
+	void BuildMenuBar();
+	void OnOpen(wxCommandEvent& event);
+	void OnSaveAs(wxCommandEvent& event);
+	wxTextCtrl* m_textCtrl;
 
 	void OnAddButtonClick(wxCommandEvent &event);
 	void OnRemoveButtonClick(wxCommandEvent &event);
@@ -51,7 +60,10 @@ private:
 
 	wxPanel* createButtonPanel(wxWindow* parent);
 
-	
+	std::string ResolveMidiPath(std::string midiPath) const;
+
+	TrackFrame* currentTrackFrame;
+	TrackManager* trackList = new TrackManager();
 
 	MidiFrame *canvas;
 
@@ -148,7 +160,7 @@ enum
 
 
 
-wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
+wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 {
 	auto trackInfoPanel = new wxScrolled<wxPanel>(parent, wxID_ANY);
 	trackInfoPanel->SetScrollRate(0, FromDIP(10));
@@ -157,14 +169,48 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
 	trackInfoPanel->SetBackgroundColour(wxColor(isDark ? darkBackground : lightBackground));
 
 	auto mainSizer = new wxBoxSizer(wxVERTICAL);
+	auto perTrackSizer = new wxBoxSizer(wxVERTICAL);
 
-	auto text = new wxStaticText(trackInfoPanel, wxID_ANY, "Tracks");
+	BuildMenuBar();
+
+	auto text = new wxStaticText(trackInfoPanel, wxID_ANY, "Track Information:");
+	auto text2 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
+	auto text3 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
+	auto text4 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
+	
 	mainSizer->Add(text, 0, wxALL, FromDIP(5));
 
-	auto infoPaneSizer = new wxWrapSizer(wxHORIZONTAL);
-	SetupInfoPanes(trackInfoPanel, infoPaneSizer);
+	std::vector<wxPanel*> trackInfoList(trackNumber);
 
-	mainSizer->Add(infoPaneSizer, 0, wxALL, FromDIP(5));
+	std::string trackNumberText = "";
+	for (int i = 0; i < trackNumber; i++)
+	{
+		trackInfoList[i] = new wxPanel(trackInfoPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
+		trackInfoList[i]->SetBackgroundColour(wxColor(0, 0, 0));
+		mainSizer->Add(trackInfoList[i], 0, wxEXPAND | wxALL, 5);
+		
+		/*
+		trackNumberText = "Track #";
+		trackNumberText += std::to_string(i+1);
+		perTrackSizer = new wxBoxSizer(wxVERTICAL);
+		text = new wxStaticText(trackInfoList[i], wxID_ANY, trackNumberText);
+		text->SetForegroundColour(wxColor(255, 255, 255));
+		perTrackSizer->Add(text, 0, wxALL);
+		
+		
+		text2 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		perTrackSizer->Add(text2, 0, wxALL, FromDIP(5));
+		text3 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		perTrackSizer->Add(text3, 0, wxALL, FromDIP(5));
+		text4 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		perTrackSizer->Add(text4, 0, wxALL, FromDIP(5));
+		
+		
+
+		trackInfoList[i]->SetSizerAndFit(perTrackSizer);
+		*/
+		
+	}
 
 	mainSizer->AddStretchSpacer();
 	
@@ -176,7 +222,78 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
 	return trackInfoPanel;
 }
 
+void MyFrame::BuildMenuBar()
+{
+	wxMenuBar* menuBar = new wxMenuBar;
+	wxMenu* fileMenu = new wxMenu;
 
+	fileMenu->Append(wxID_NEW);
+	fileMenu->Append(wxID_OPEN);
+	Bind(wxEVT_MENU, &MyFrame::OnOpen, this, wxID_OPEN);
+	fileMenu->Append(wxID_SAVE);
+	fileMenu->Append(wxID_SAVEAS);
+	Bind(wxEVT_MENU, &MyFrame::OnSaveAs, this, wxID_SAVEAS);
+	fileMenu->Append(wxID_CLOSE);
+	fileMenu->Append(wxID_EXIT);
+
+	menuBar->Append(fileMenu, "&File");
+
+	auto editMenu = new wxMenu;
+	editMenu->Append(wxID_UNDO);
+	editMenu->Append(wxID_REDO);
+	editMenu->AppendSeparator();
+	editMenu->Append(wxID_CUT);
+	editMenu->Append(wxID_COPY);
+	editMenu->Append(wxID_PASTE);
+	editMenu->Append(wxID_DELETE);
+	editMenu->AppendSeparator();
+	editMenu->Append(wxID_SELECTALL);
+
+	menuBar->Append(editMenu, "&Edit");
+
+	SetMenuBar(menuBar);
+}
+
+void MyFrame::OnOpen(wxCommandEvent& event)
+{
+	wxFileDialog openFileDialog(this, _("Open File"), "", "",
+		"Text files (*.txt)|*.txt|All files (*.*)|*.*",
+		wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+	if (openFileDialog.ShowModal() == wxID_OK)
+	{
+		wxString filePath = openFileDialog.GetPath();
+
+		if (m_textCtrl)
+		{
+			m_textCtrl->LoadFile(filePath);
+		}
+
+		SetStatusText("Opened: " + filePath);
+	}
+
+}
+
+void MyFrame::OnSaveAs(wxCommandEvent& event)
+{
+	wxFileDialog openFileDialog(this, _("Save File As..."), "", "",
+		"Text files (*.txt)|*.txt|All files (*.*)|*.*",
+		wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+	if (openFileDialog.ShowModal() == wxID_OK)
+	{
+		wxString filePath = openFileDialog.GetPath();
+
+
+		if (m_textCtrl)
+		{
+			m_textCtrl->LoadFile(filePath);
+		}
+
+		SetStatusText("Saved: " + filePath);
+	}
+
+}
 
 wxIMPLEMENT_APP(MyApp);
 
@@ -185,17 +302,18 @@ bool MyApp::OnInit()
 	if (!wxApp::OnInit())
 		return false;
 
-	MyFrame *frame = new MyFrame("DAW", wxDefaultPosition, wxDefaultSize);
-	frame->Show(true);
+	
 
-	MidiFile midi;
+	MidiFile *midi = new MidiFile;
 
 	size_t nCurrentNote[16]{ 0 };
 
 	double dSongTime = 0.0;
 	double dRunTime = 0.0;
 	uint32_t nMidiClock = 0;
-
+	
+	MyFrame *frame = new MyFrame("DAW", wxDefaultPosition, wxDefaultSize);
+	frame->Show(true);
 
 	//wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -213,20 +331,91 @@ void MyFrame::SetupInfoPanes(wxWindow* parent, wxSizer* sizer)
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	: wxFrame(nullptr, wxID_ANY, title, pos, size)
 {
+	MidiFile *midi = new MidiFile;
+	std::string pathName = ResolveMidiPath("battle-theme.mid");
+	bool test = midi->ParseFile(pathName);
+
+	//gets the number of tracks from the midi file and creates a vector (dynamic array) of panels of the size of the track number
+	int trackNumber = midi->getTrackNum();
 	
+	
+	
+
 	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
 
 	splitter->SetMinimumPaneSize(FromDIP(150));
 	 
-	auto trackInfoPanel = BuildTrackInfoPanel(splitter);
-	canvas = new MidiFrame(splitter, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+	auto trackInfoPanel = BuildTrackInfoPanel(splitter, trackNumber);
+	canvas = new MidiFrame(splitter, wxID_ANY, wxDefaultPosition, wxSize(200,100));
+	canvas->SetBackgroundColour(wxColor(70, 70, 70));
+
+	//sizers to handle both the splitter/track area panel and the track panels that sit within the track area panel
+	wxBoxSizer *mainSizer = new wxBoxSizer(wxHORIZONTAL);
+	wxSizer *trackSizer = new wxBoxSizer(wxVERTICAL);
+
+	mainSizer->Add(splitter, 1, wxEXPAND, 0);
 	
+
+	
+	
+	if (test == false) //if statement is currently here just for testing, the code within will be eventually be used in the next if statement
+	{
+		trackList->setIndex(0);
+		//creates a new TrackFrame in the vector of Track Frames within the track manager object, taking in the canvas as its parent for use later in the sizer
+		trackList->addTrack(new TrackFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
+
+		trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
+		// adds the newly created TrackFrame into the sizer
+		trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL, 5);
+
+	}
+
+	auto text = new wxStaticText(canvas, wxID_ANY, "Tracks:");
+	text->SetForegroundColour(wxColor(255, 255, 255));
+	trackSizer->Add(text, 0, wxALL, FromDIP(5));
+	
+	
+	if (trackNumber == 1) //sets up track if there's only one track
+	{
+		trackList->setIndex(0);
+		trackList->addTrack(new TrackFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
+		trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
+		trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL, 5);
+	}
+	else 
+	{
+		//fills vector with midiframes per track and adds them to the sizer
+		for (int i = 0; i < trackNumber; i++)
+		{
+			trackList->setIndex(i);
+			trackList->addTrack(new TrackFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
+			trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
+			if (i == 0)
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
+			else if (i == trackNumber - 1)
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
+			else
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
+			
+			trackList->getTrackFrame()->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
+		}
+
+	}
+	
+	
+
+	canvas->SetSizerAndFit(trackSizer);
+
 
 	splitter->SplitVertically(trackInfoPanel, canvas);
 	splitter->SetSashPosition(FromDIP(220));
 
 	this->SetSize(FromDIP(800), FromDIP(500));
 	this->SetMinSize({ FromDIP(400), FromDIP(200) });
+	this->SetSizerAndFit(mainSizer);
+	
+	
+	
 	
 	canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
 	
@@ -240,15 +429,37 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	
 	
 	canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
-	canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
+	//canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
 
 
-	rectCount = canvas->getObjectCount();
+	//rectCount = canvas->getObjectCount();
 
 	//sizer->Add(buttonPanel, 0, wxEXPAND | wxALL, 0);
 	//sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
 
 	//this->SetSizerAndFit(sizer);
+
+	int offsetY = 0;
+	int timePerColumn = 50;
+	int noteHeight = 2;
+	int i = 0;
+	float trackOffset = 1000;
+	for (auto& track : midi->vecTracks)
+	{
+		if (!track.vecNotes.empty())
+		{
+			uint32_t noteRange = track.nMaxNote - track.nMinNote;
+			trackList->setIndex(i);
+			for (auto& note : track.vecNotes)
+			{
+				//param1: x coord.
+				trackList->getTrackFrame()->addNote(note.nDuration / timePerColumn, noteHeight, (note.nStartTime - trackOffset) / timePerColumn, (noteRange - (note.nKey - track.nMinNote)) * noteHeight + offsetY);
+			}
+
+			offsetY += (noteRange + 1) * noteHeight + 4;
+		}
+		i++;
+	}
 
 	CreateStatusBar(1);
 	SetStatusText("Ready", 0);
@@ -260,15 +471,15 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 {
 	std::uniform_int_distribution<> sizeDistrib (this->FromDIP(50), this->FromDIP(100));
-	std::uniform_int_distribution<> xDistrib(0, canvas->GetSize().GetWidth());
-	std::uniform_int_distribution<> yDistrib(0, canvas->GetSize().GetHeight());
+	std::uniform_int_distribution<> xDistrib(0, trackList->getTrackFrame()->GetSize().GetWidth());
+	std::uniform_int_distribution<> yDistrib(0, trackList->getTrackFrame()->GetSize().GetHeight());
 	std::uniform_real_distribution<> angleDistrib(0.0, M_PI * 2.0);
 
 	std::uniform_int_distribution<> colorDistrib(0, 0xFFFFFF);
 
 	rectCount++;
-	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen),
-		wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
+	trackList->setIndex(0);
+	trackList->getTrackFrame()->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen));
 }
 
 void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
@@ -276,8 +487,7 @@ void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
 	canvas->removeTopNote();
 }
 
-//double click to add a note, currently breaks double click to remove
-//need to find a way to detect when the mouse is hovering over an existing note and disable this function when true
+//double click to add a note
 void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 {
 	
@@ -289,8 +499,8 @@ void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 	wxPoint mousePos = evt.GetPosition();
 
 	rectCount++;
-	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y,
-		wxColor(colorDistrib(randomGen)), "Note #" + std::to_string(rectCount));
+	trackList->setIndex(0);
+	trackList->getTrackFrame()->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y);
 	
 }
 
@@ -320,6 +530,26 @@ wxPanel* MyFrame::createButtonPanel(wxWindow* parent)
 	removeLastButton->Bind(wxEVT_BUTTON, &MyFrame::OnRemoveButtonClick, this);
 
 	return panel;
+}
+
+std::string MyFrame::ResolveMidiPath(std::string sMidiPath) const
+{
+	namespace fs = std::filesystem;
+
+	std::vector<fs::path> candidates = {
+		fs::path(sMidiPath),
+		fs::path("./") / sMidiPath,
+		fs::path("../") / sMidiPath,
+		fs::path("../../") / sMidiPath
+	};
+
+	for (const auto& p : candidates)
+	{
+		if (fs::exists(p))
+			return p.string();
+	}
+
+	return sMidiPath;
 }
 
 /*

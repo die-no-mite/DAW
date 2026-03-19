@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <fstream>
 
 
 
@@ -20,11 +20,14 @@
 
 	void MidiFile::Clear()
 	{
-
+		vecTracks.clear();
+		m_nTempo = 0;
+		m_nBPM = 0;
 	}
 
 	bool MidiFile::ParseFile(const std::string& sFileName)
 	{
+		Clear();
 		// Open the MIDI File as a stream
 		std::ifstream ifs;
 		ifs.open(sFileName, std::fstream::in | std::ios::binary);
@@ -103,6 +106,7 @@
 
 		for (uint16_t nChunk = 0; nChunk < nTrackChunks; nChunk++)
 		{
+			totalTracks++;
 			std::cout << "===== NEW TRACK" << std::endl;
 			// Read Track Header
 			ifs.read((char*)&n32, sizeof(uint32_t));
@@ -352,4 +356,9 @@
 		}
 
 		return true;
+	}
+
+	int MidiFile::getTrackNum()
+	{
+		return totalTracks;
 	}
