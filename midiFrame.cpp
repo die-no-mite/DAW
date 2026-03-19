@@ -2,6 +2,7 @@
 #include <wx/graphics.h>
 #include <wx/dcbuffer.h>
 
+
 wxDEFINE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDEFINE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 

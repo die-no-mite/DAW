@@ -3,19 +3,20 @@
 
 #include "TrackManager.h"
 
-TrackManager::TrackManager(int totalTracks)
+TrackManager::TrackManager()
 {
-	this->totalTracks = totalTracks;
+	
 	
 }
 
 void TrackManager::addTrack(TrackFrame* frame)
 {
-
+	trackList.push_back(frame);
 }
 
 TrackFrame* TrackManager::getTrackFrame()
 {
+	
 	return trackList[index];
 }
 

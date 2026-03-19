@@ -33,6 +33,7 @@ void TrackFrame::OnPaint(wxPaintEvent& evt)
 
 			gc->SetBrush(wxBrush(object.color));
 			gc->DrawRectangle(object.note.m_x, object.note.m_y, object.note.m_width, object.note.m_height);
+			
 
 		}
 		delete gc;
@@ -115,4 +116,21 @@ void TrackFrame::OnMouseMove(wxMouseEvent& event)
 		Refresh();
 		
 	}
+}
+
+void TrackFrame::OnMouseUp(wxMouseEvent& event)
+{
+	finishDrag();
+	
+}
+
+void TrackFrame::OnMouseLeave(wxMouseEvent& event)
+{
+	finishDrag();
+	
+}
+
+void TrackFrame::finishDrag()
+{
+	draggedObj = nullptr;
 }

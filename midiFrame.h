@@ -1,6 +1,7 @@
 #pragma once
 
 #include <wx/wx.h>
+
 #include <list>
 
 #include "graphicMIDIevent.h"

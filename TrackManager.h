@@ -7,7 +7,7 @@
 class TrackManager
 {
 public:
-	TrackManager(int totalTracks);
+	TrackManager();
 	
 
 	void addTrack(TrackFrame* frame);
@@ -17,7 +17,7 @@ public:
 
 
 private:
-	int totalTracks;
+	
 	int index;
 
 	std::vector<TrackFrame*> trackList;

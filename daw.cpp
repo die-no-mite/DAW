@@ -57,7 +57,8 @@ private:
 
 	std::string ResolveMidiPath(std::string midiPath) const;
 
-	
+	TrackFrame* currentTrackFrame;
+	TrackManager* trackList = new TrackManager();
 
 	MidiFrame *canvas;
 
@@ -259,7 +260,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	//gets the number of tracks from the midi file and creates a vector (dynamic array) of panels of the size of the track number
 	int trackNumber = midi->getTrackNum();
 	
-	std::vector<MidiFrame*> trackList(trackNumber);
+	
 	
 
 	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
@@ -281,12 +282,13 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	
 	if (test == false) //if statement is currently here just for testing, the code within will be eventually be used in the next if statement
 	{
-		
-		//creates a new MidiFrame in the vector of Midi Frames within the midi object, taking in the trackPanel as its parent for use later in the sizer
-		trackList[0] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
-		trackList[0]->SetBackgroundColour(wxColor(0, 0, 0));
-		// adds the newly created MidiFrame into the sizer
-		trackSizer->Add(trackList[0], 0, wxEXPAND | wxALL, 5);
+		trackList->setIndex(0);
+		//creates a new TrackFrame in the vector of Track Frames within the track manager object, taking in the canvas as its parent for use later in the sizer
+		trackList->addTrack(new TrackFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
+
+		trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
+		// adds the newly created TrackFrame into the sizer
+		trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL, 5);
 
 	}
 
@@ -297,25 +299,27 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	
 	if (trackNumber == 1) //sets up track if there's only one track
 	{
-		trackList[0] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
-		trackList[0]->SetBackgroundColour(wxColor(0, 0, 0));
-		trackSizer->Add(trackList[0], 1, wxEXPAND | wxALL, 5);
+		trackList->setIndex(0);
+		trackList->addTrack(new TrackFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
+		trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
+		trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL, 5);
 	}
 	else 
 	{
 		//fills vector with midiframes per track and adds them to the sizer
 		for (int i = 0; i < trackNumber; i++)
 		{
-			trackList[i] = new MidiFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
-			trackList[i]->SetBackgroundColour(wxColor(0,0,0));
+			trackList->setIndex(i);
+			trackList->addTrack(new TrackFrame(canvas, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
+			trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
 			if (i == 0)
-				trackSizer->Add(trackList[i], 0, wxEXPAND | wxALL | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
 			else if (i == trackNumber - 1)
-				trackSizer->Add(trackList[i], 0, wxEXPAND | wxALL | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
 			else
-				trackSizer->Add(trackList[i], 0, wxEXPAND | wxALL | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
 			
-			trackList[i]->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
+			trackList->getTrackFrame()->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
 		}
 
 	}
@@ -347,7 +351,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	
 	
 	canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
-	canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
+	//canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
 
 
 	//rectCount = canvas->getObjectCount();
@@ -356,6 +360,28 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	//sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
 
 	//this->SetSizerAndFit(sizer);
+
+	int offsetY = 0;
+	int timePerColumn = 50;
+	int noteHeight = 2;
+	int i = 0;
+	float trackOffset = 1000;
+	for (auto& track : midi->vecTracks)
+	{
+		if (!track.vecNotes.empty())
+		{
+			uint32_t noteRange = track.nMaxNote - track.nMinNote;
+			trackList->setIndex(i);
+			for (auto& note : track.vecNotes)
+			{
+				//param1: x coord.
+				trackList->getTrackFrame()->addNote(note.nDuration / timePerColumn, noteHeight, (note.nStartTime - trackOffset) / timePerColumn, (noteRange - (note.nKey - track.nMinNote)) * noteHeight + offsetY);
+			}
+
+			offsetY += (noteRange + 1) * noteHeight + 4;
+		}
+		i++;
+	}
 
 	CreateStatusBar(1);
 	SetStatusText("Ready", 0);
@@ -367,15 +393,15 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 void MyFrame::OnAddButtonClick(wxCommandEvent& event)
 {
 	std::uniform_int_distribution<> sizeDistrib (this->FromDIP(50), this->FromDIP(100));
-	std::uniform_int_distribution<> xDistrib(0, canvas->GetSize().GetWidth());
-	std::uniform_int_distribution<> yDistrib(0, canvas->GetSize().GetHeight());
+	std::uniform_int_distribution<> xDistrib(0, trackList->getTrackFrame()->GetSize().GetWidth());
+	std::uniform_int_distribution<> yDistrib(0, trackList->getTrackFrame()->GetSize().GetHeight());
 	std::uniform_real_distribution<> angleDistrib(0.0, M_PI * 2.0);
 
 	std::uniform_int_distribution<> colorDistrib(0, 0xFFFFFF);
 
 	rectCount++;
-	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen),
-		wxColor(colorDistrib(randomGen)));
+	trackList->setIndex(0);
+	trackList->getTrackFrame()->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen));
 }
 
 void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
@@ -395,8 +421,8 @@ void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 	wxPoint mousePos = evt.GetPosition();
 
 	rectCount++;
-	canvas->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y,
-		wxColor(colorDistrib(randomGen)));
+	trackList->setIndex(0);
+	trackList->getTrackFrame()->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), mousePos.x, mousePos.y);
 	
 }
 
