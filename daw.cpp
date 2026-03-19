@@ -13,6 +13,7 @@
 #include "midiFrame.h"
 #include "ColorPane.h"
 #include "trackFrame.h"
+#include "TrackManager.h"
 
 
 
@@ -179,13 +180,16 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 		trackInfoList[i] = new wxPanel(trackInfoPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
 		trackInfoList[i]->SetBackgroundColour(wxColor(0, 0, 0));
 		mainSizer->Add(trackInfoList[i], 0, wxEXPAND | wxALL, 5);
+		
 		/*
 		trackNumberText = "Track #";
 		trackNumberText += std::to_string(i+1);
 		perTrackSizer = new wxBoxSizer(wxVERTICAL);
 		text = new wxStaticText(trackInfoList[i], wxID_ANY, trackNumberText);
 		text->SetForegroundColour(wxColor(255, 255, 255));
-		perTrackSizer->Add(text, 0, wxALL, FromDIP(5));
+		perTrackSizer->Add(text, 0, wxALL);
+		
+		
 		text2 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
 		perTrackSizer->Add(text2, 0, wxALL, FromDIP(5));
 		text3 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
@@ -193,9 +197,11 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 		text4 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
 		perTrackSizer->Add(text4, 0, wxALL, FromDIP(5));
 		
+		
 
 		trackInfoList[i]->SetSizerAndFit(perTrackSizer);
 		*/
+		
 	}
 
 	mainSizer->AddStretchSpacer();
@@ -308,7 +314,10 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 				trackSizer->Add(trackList[i], 0, wxEXPAND | wxALL | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
 			else
 				trackSizer->Add(trackList[i], 0, wxEXPAND | wxALL | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
+			
+			trackList[i]->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
 		}
+
 	}
 	
 	
@@ -374,8 +383,7 @@ void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
 	canvas->removeTopNote();
 }
 
-//double click to add a note, currently breaks double click to remove
-//need to find a way to detect when the mouse is hovering over an existing note and disable this function when true
+//double click to add a note
 void MyFrame::OnMouseEvent(wxMouseEvent& evt)
 {
 	
