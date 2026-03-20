@@ -106,8 +106,8 @@
 
 		for (uint16_t nChunk = 0; nChunk < nTrackChunks; nChunk++)
 		{
-			totalTracks++;
-			std::cout << "===== NEW TRACK" << std::endl;
+			
+			
 			// Read Track Header
 			ifs.read((char*)&n32, sizeof(uint32_t));
 			uint32_t nTrackID = Swap32(n32);
@@ -360,5 +360,5 @@
 
 	int MidiFile::getTrackNum()
 	{
-		return totalTracks;
+		return vecTracks.size();
 	}

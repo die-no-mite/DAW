@@ -9,7 +9,7 @@
 wxDECLARE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDECLARE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 
-class MidiFrame : public wxPanel
+class MidiFrame : public wxScrolled<wxPanel>
 {
 public:
 	MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);

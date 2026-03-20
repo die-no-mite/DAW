@@ -27,6 +27,8 @@ private:
 	
 	void finishDrag();
 
+	bool isPopupOpen = false;
+
 	GraphicMIDIEvent* draggedObj;
 
 	std::list<GraphicMIDIEvent> noteList;

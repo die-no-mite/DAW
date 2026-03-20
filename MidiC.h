@@ -60,7 +60,7 @@ class MidiFile {
         uint32_t m_nTempo = 0;
         uint32_t m_nBPM = 0;
         uint16_t nTrackChunks = 0;
-        int totalTracks = 0;
+        
 };
 
 #endif

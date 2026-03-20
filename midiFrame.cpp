@@ -6,7 +6,7 @@
 wxDEFINE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDEFINE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 
-MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size) : wxPanel(parent, id, pos, size)
+MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size) : wxScrolled<wxPanel>(parent, id, pos, size)
 {
 	this->SetBackgroundStyle(wxBG_STYLE_PAINT);
 
