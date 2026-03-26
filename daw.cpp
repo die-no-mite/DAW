@@ -44,32 +44,32 @@ public:
 	
 
 private:
-	void SetupPenPanes(wxWindow* parent, wxSizer* sizer);
+	
 	wxPanel *BuildTrackInfoPanel(wxWindow* parent, int trackNumber);
 	MidiFrame* BuildTrackPanel(wxWindow* parent, int trackNumber);
 	void DrawMidiTracks();
 	void Setup();
-	void ResetFrames();
+	
+	wxSplitterWindow* ResetSplitter();
 
 	void BuildMenuBar();
 	void OnOpen(wxCommandEvent& event);
 	void OnSaveAs(wxCommandEvent& event);
 	wxTextCtrl* m_textCtrl;
 
-	void OnAddButtonClick(wxCommandEvent &event);
-	void OnRemoveButtonClick(wxCommandEvent &event);
 	void OnDoubleClick(wxMouseEvent &event);
 
-	void OnNoteAdded(wxCommandEvent& event);
-	void OnNoteRemoved(wxCommandEvent& event);
 
-	wxPanel* createButtonPanel(wxWindow* parent);
 	wxPanel* trackInfoPanel;
+
+	wxSplitterWindow* splitter;
+	wxBoxSizer* mainSizer;
 
 	std::string ResolveMidiPath(std::string midiPath) const;
 
 	TrackFrame* currentTrackFrame;
 	TrackManager* trackList = new TrackManager();
+	TrackManager* trackInfoList = new TrackManager();
 
 	std::vector<int> trackIDs;
 
@@ -80,6 +80,8 @@ private:
 	std::mt19937 randomGen;
 
 	bool isEditorOpen = false;
+	bool reset = false;
+	bool isFileOpen = false;
 
 
 	const std::string lightBackground = "#f4f3f3";
@@ -183,7 +185,7 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 	auto perTrackSizer = new wxBoxSizer(wxVERTICAL);
 
 	
-	/*
+	
 	auto text = new wxStaticText(trackInfoPanel, wxID_ANY, "Track Information:");
 	auto text2 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
 	auto text3 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
@@ -191,34 +193,35 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 	
 	mainSizer->Add(text, 0, wxALL, FromDIP(5));
 
-	std::vector<wxPanel*> trackInfoList(trackNumber);
+	
 
 	std::string trackNumberText = "";
 	for (int i = 0; i < trackNumber; i++)
 	{
-		trackInfoList[i] = new wxPanel(trackInfoPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
-		trackInfoList[i]->SetBackgroundColour(wxColor(0, 0, 0));
-		mainSizer->Add(trackInfoList[i], 0, wxEXPAND | wxALL, 5);
+		trackInfoList->setIndex(i);
+		trackInfoList->addTrack(new TrackFrame(trackInfoPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
+		trackInfoList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
+		mainSizer->Add(trackInfoList->getTrackFrame(), 0, wxEXPAND | wxALL, 5);
 		
 		
 		trackNumberText = "Track #";
 		trackNumberText += std::to_string(i+1);
 		perTrackSizer = new wxBoxSizer(wxVERTICAL);
-		text = new wxStaticText(trackInfoList[i], wxID_ANY, trackNumberText);
+		text = new wxStaticText(trackInfoList->getTrackFrame(), wxID_ANY, trackNumberText);
 		text->SetForegroundColour(wxColor(255, 255, 255));
 		perTrackSizer->Add(text, 0, wxALL);
 		
 		
-		text2 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		text2 = new wxStaticText(trackInfoList->getTrackFrame(), wxID_ANY, "");
 		perTrackSizer->Add(text2, 0, wxALL, FromDIP(5));
-		text3 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		text3 = new wxStaticText(trackInfoList->getTrackFrame(), wxID_ANY, "");
 		perTrackSizer->Add(text3, 0, wxALL, FromDIP(5));
-		text4 = new wxStaticText(trackInfoList[i], wxID_ANY, "");
+		text4 = new wxStaticText(trackInfoList->getTrackFrame(), wxID_ANY, "");
 		perTrackSizer->Add(text4, 0, wxALL, FromDIP(5));
 		
 		
 		
-		trackInfoList[i]->SetSizerAndFit(perTrackSizer);
+		trackInfoList->getTrackFrame()->SetSizerAndFit(perTrackSizer);
 		
 		
 	}
@@ -228,7 +231,7 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 	mainSizer->AddSpacer(FromDIP(5));
 
 	trackInfoPanel->SetSizer(mainSizer);
-	*/
+	
 
 	return trackInfoPanel;
 }
@@ -283,16 +286,21 @@ void MyFrame::OnOpen(wxCommandEvent& event)
 		std::string fileLocation = std::string(fileLocationWX.mb_str(wxConvUTF8));
 
 		
-		
+		if(isFileOpen) // only sets reset flag if there's already a file open
+			reset = true;
 
+		//destroys panels contained within the list and deletes empty cells
 		trackList->DetroyList();
+		trackInfoList->DetroyList();
 		
 		std::string pathName = ResolveMidiPath(fileLocation);
 		SetStatusText("Opened: " + pathName);
-		bool test = midi->ParseFile(fileLocation);
+		midi = new MidiFile();
+		midi->ParseFile(fileLocation);
 		//fileReady = fileLocation;
 		
-		ResetFrames();
+		isFileOpen = true;
+
 		Setup();
 	}
 	else
@@ -370,32 +378,18 @@ wxIMPLEMENT_APP(MyApp);
 
 bool MyApp::OnInit()
 {
-
 	wxInitAllImageHandlers();
 
 	if (!wxApp::OnInit())
 		return false;
 
 	
-
-	MidiFile *midi = new MidiFile;
-
-	
-	
 	MyFrame *frame = new MyFrame("DAW", wxDefaultPosition, wxDefaultSize);
 	frame->Show(true);
-
-	//wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
-
 
 	return true;
 }
 
-
-void MyFrame::SetupInfoPanes(wxWindow* parent, wxSizer* sizer)
-{
-	NULL;
-}
 
 MidiFrame* MyFrame::BuildTrackPanel(wxWindow* parent, int trackNumber)
 {
@@ -465,6 +459,8 @@ void MyFrame::DrawMidiTracks()
 
 	std::vector<float> currentYList;
 
+	std::ofstream file;
+	file.open("output.txt");
 
 	for (auto& track : midi->vecTracks)
 	{
@@ -472,12 +468,14 @@ void MyFrame::DrawMidiTracks()
 		{
 			uint32_t noteRange = track.nMaxNote - track.nMinNote;
 			trackList->setIndex(i);
+			file << "new track" << std::endl;
 
 			// gets the note hieghts for each note in the track and pushes them into a vector
 			for (auto& note : track.vecNotes)
 			{
 
 				ypos = (noteRange - (note.nKey - track.nMinNote)) * noteHeight;
+				
 				currentYList.push_back(ypos);
 
 			}
@@ -485,19 +483,25 @@ void MyFrame::DrawMidiTracks()
 			// searches the vector for the real minimum and real maximum note height
 			for (int i = 0; i < currentYList.size(); i++)
 			{
-				if (currentYList[i] < realMin)
-					realMin = currentYList[i];
+				if (currentYList[i] != 0)
+				{
+					if (currentYList[i] < realMin)
+						realMin = currentYList[i];
 
-				if (currentYList[i] > realMax)
-					realMax = currentYList[i];
+					if (currentYList[i] > realMax)
+						realMax = currentYList[i];
+				}
 			}
 
 			j = 0;
 			// scales the notes to fit within the track panel and draws them in the correct panel
+			
 			for (auto& note : track.vecNotes)
 			{
 				ypos = ScaleYCoord(currentYList[j], realMin, realMax);
+				file << currentYList[j] << " " << ypos << std::endl;
 				trackList->getTrackFrame()->addNote(note.nDuration / timePerColumn, noteHeight, (note.nStartTime - trackOffset) / timePerColumn, ypos);
+				//trackList->getTrackFrame()->addNote(note.nDuration / timePerColumn, noteHeight, (note.nStartTime - trackOffset) / timePerColumn, (noteRange - (note.nKey - track.nMinNote)) * noteHeight);
 				j++;
 			}
 
@@ -514,7 +518,9 @@ void MyFrame::DrawMidiTracks()
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	: wxFrame(nullptr, wxID_ANY, title, pos, size)
 {
+	splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
 
+	mainSizer = new wxBoxSizer(wxHORIZONTAL);
 	
 	std::string pathName = ResolveMidiPath("battle-theme.mid");
 	//bool test = midi->ParseFile(pathName);
@@ -524,7 +530,7 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	
 	worked = pathName;
 	
-	//Setup();
+
 
 	BuildMenuBar();
 	
@@ -535,22 +541,39 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	
 }
 
+wxSplitterWindow* MyFrame::ResetSplitter()
+{
+	return new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
+}
+
 void MyFrame::Setup()
 {
-	wxSplitterWindow* splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
+	
+	mainSizer->Clear(true); // clears the main sizer, deleting it's contents in the process
+
+	
+	
 
 	//gets the number of tracks from the midi file and creates a vector (dynamic array) of panels of the size of the track number
 	int trackNumber = midi->getTrackNum();
+	
 
+	if (reset) // if a reset is needed, the trackIDs vector is cleared and the splitter is reset
+	{
+		
+		trackIDs.erase(trackIDs.begin(), trackIDs.end());
+
+		splitter = ResetSplitter();
+
+		reset = false;
+	}
+	
 	splitter->SetMinimumPaneSize(FromDIP(150));
-
-	wxPanel *trackInfoPanel = BuildTrackInfoPanel(splitter, trackNumber);
-
-	wxBoxSizer* mainSizer = new wxBoxSizer(wxHORIZONTAL);
-	mainSizer->Add(splitter, 1, wxEXPAND, 0);
-
+	
+	trackInfoPanel = BuildTrackInfoPanel(splitter, trackNumber);
 	canvas = BuildTrackPanel(splitter, trackNumber);
-
+	
+	mainSizer->Add(splitter, 1, wxEXPAND, 0);
 
 
 	splitter->SplitVertically(trackInfoPanel, canvas);
@@ -561,114 +584,45 @@ void MyFrame::Setup()
 	this->SetSizerAndFit(mainSizer);
 
 
-
-
-	canvas->Bind(CANVAS_RECT_ADDED, &MyFrame::OnNoteAdded, this);
-
-	//these commented out lines (even the 3 at the bottom) are what was making the program window bug out, they'll need to be reimplemented at some point
-
-	//wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-
-
-	//auto buttonPanel = createButtonPanel(this);
-
-
-
-	canvas->Bind(CANVAS_RECT_REMOVED, &MyFrame::OnNoteRemoved, this);
-	//canvas->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnMouseEvent, this);
-
-
-	//rectCount = canvas->getObjectCount();
-
-	//sizer->Add(buttonPanel, 0, wxEXPAND | wxALL, 0);
-	//sizer->Add(canvas, 1, wxEXPAND | wxALL, 0);
-
-	//this->SetSizerAndFit(sizer);
-
-
 	DrawMidiTracks();
 }
 
-void MyFrame::ResetFrames()
-{
-	trackInfoPanel = nullptr;
-	//canvas = nullptr;
-}
 
 float MyFrame::ScaleYCoord(float y, float min, float max)
 {
+	float scaledY;
+	float range = max - min;
+	float ystd = (y - min) / range;
 
-	float ystd = (y - min) / (max - min);
-
-	return (ystd * (90.0 - 10.0) + 10.0);
+	if (range > 100)
+		scaledY = (ystd * (90.0 - 10.0) + 10.0);
+	else if (range > 80)
+		scaledY = (ystd * (80.0 - 20.0) + 20.0);
+	else if (range > 60)
+		scaledY = (ystd * (70.0 - 30.0) + 30.0);
+	else
+		scaledY = (ystd * (65.0 - 35.0) + 35.0);
+	return scaledY;
 }
 
 
-void MyFrame::OnAddButtonClick(wxCommandEvent& event)
-{
-	std::uniform_int_distribution<> sizeDistrib (this->FromDIP(50), this->FromDIP(100));
-	std::uniform_int_distribution<> xDistrib(0, trackList->getTrackFrame()->GetSize().GetWidth());
-	std::uniform_int_distribution<> yDistrib(0, trackList->getTrackFrame()->GetSize().GetHeight());
-	std::uniform_real_distribution<> angleDistrib(0.0, M_PI * 2.0);
 
-	std::uniform_int_distribution<> colorDistrib(0, 0xFFFFFF);
-
-	rectCount++;
-	trackList->setIndex(0);
-	trackList->getTrackFrame()->addNote(sizeDistrib(randomGen), sizeDistrib(randomGen), xDistrib(randomGen), yDistrib(randomGen));
-}
-
-void MyFrame::OnRemoveButtonClick(wxCommandEvent& event)
-{
-	canvas->removeTopNote();
-}
 
 //double click to open a track in the editor
 void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 {
 	for (int i = 0; i < trackIDs.size(); i++)
 	{
-		if (evt.GetId() == trackIDs[i])
+		if (evt.GetId() == trackIDs[i]) // determines which track was opened and stores its index in the midi object
 		{
 			midi->currentTrack = i;
 		}
 	}
-	
 
 	EditorFrame* editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi);
-	
 
 	editorWindow->ShowModal();
 	
-	
-}
-
-void MyFrame::OnNoteAdded(wxCommandEvent& event)
-{
-	SetStatusText("Note named " + event.GetString() + " added!", 0);
-}
-
-void MyFrame::OnNoteRemoved(wxCommandEvent& event)
-{
-	SetStatusText("Note named " + event.GetString() + " REMOVED!", 0);
-}
-
-wxPanel* MyFrame::createButtonPanel(wxWindow* parent)
-{
-	wxPanel* panel = new wxPanel(parent);
-	wxButton* addNoteButton = new wxButton(panel, wxID_ANY, "Add Note");
-	wxButton* removeLastButton = new wxButton(panel, wxID_ANY, "Remove Top Note");
-
-	wxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
-	sizer->Add(addNoteButton, 0, wxEXPAND | wxALL, 3);
-	sizer->Add(removeLastButton, 0, wxEXPAND | wxALL, 3);
-
-	panel->SetSizer(sizer);
-
-	addNoteButton->Bind(wxEVT_BUTTON, &MyFrame::OnAddButtonClick, this);
-	removeLastButton->Bind(wxEVT_BUTTON, &MyFrame::OnRemoveButtonClick, this);
-
-	return panel;
 }
 
 std::string MyFrame::ResolveMidiPath(std::string sMidiPath) const
@@ -693,174 +647,3 @@ std::string MyFrame::ResolveMidiPath(std::string sMidiPath) const
 
 	return sMidiPath;
 }
-
-/*
-void MIDIPane::render(wxDC& dc)
-{
-	dc.DrawText(wxT("Testing"), 40, 60);
-
-	// draw a circle
-	dc.SetBrush(*wxGREEN_BRUSH); // green filling
-	dc.SetPen(wxPen(wxColor(255, 0, 0), 5)); // 5-pixels-thick red outline
-	dc.DrawCircle(wxPoint(200, 100), 25 /* radius /);
-
-	// draw a rectangle
-	dc.SetBrush(*wxBLUE_BRUSH); // blue filling
-	dc.SetPen(wxPen(wxColor(255, 175, 175), 10)); // 10-pixels-thick pink outline
-	dc.DrawRectangle(300, 100, 400, 200);
-
-	// draw a line
-	dc.SetPen(wxPen(wxColor(0, 0, 0), 3)); // black line, 3 pixels thick
-	dc.DrawLine(300, 100, 700, 300); // draw line across the rectangle
-	/*
-	MidiFile midi;
-	wxTimer timer;
-
-	midi.ParseFile("battle-theme.mid");
-
-	size_t nCurrentNote[16]{};
-
-	double dSongTime = 0.0;
-	double dRunTime = 0.0;
-	uint32_t nMidiClock = 0;
-
-	float nTrackOffset = 1000.0f;
-
-
-	int screenW, screenH;
-	GetClientSize(&screenW, &screenH);
-
-	uint32_t nTimePerColumn = 50;
-	uint32_t nNoteHeight = 2;
-	uint32_t nOffsetY = 0;
-
-	dc.SetFont(wxFontInfo(8).Family(wxFONTFAMILY_TELETYPE));
-
-	for (auto& track : midi.vecTracks)
-	{
-		if (track.vecNotes.empty())
-		{
-			std::cout << "Empty Track" << std::endl;
-			continue;
-		}
-		uint32_t nNoteRange = track.nMaxNote - track.nMinNote;
-		uint32_t trackHeight = (nNoteRange + 1) * nNoteHeight;
-
-		// Track background
-		dc.SetBrush(*wxLIGHT_GREY_BRUSH);
-		dc.SetPen(*wxTRANSPARENT_PEN);
-		dc.DrawRectangle(0, nOffsetY, screenW, trackHeight);
-
-		// Track name
-		dc.SetTextForeground(*wxBLACK);
-		dc.DrawText(track.sName, 4, nOffsetY + 2);
-
-		// Notes
-		dc.SetBrush(*wxWHITE_BRUSH);
-		for (auto& note : track.vecNotes)
-		{
-			int x = (note.nStartTime - nTrackOffset) / nTimePerColumn;
-			int y = (nNoteRange - (note.nKey - track.nMinNote)) * nNoteHeight
-				+ nOffsetY;
-
-			int w = note.nDuration / nTimePerColumn;
-			int h = nNoteHeight;
-
-			dc.DrawRectangle(x, y, w, h);
-		}
-
-		nOffsetY += trackHeight + 4;
-
-	}
-	*/
-//}
-
-
-/*
-class olcMIDIViewer : public olc::PixelGameEngine
-{
-public:
-	olcMIDIViewer()
-	{
-		sAppName = "MIDI File Viewer";
-	}
-
-
-	MidiFile midi;
-
-	//HMIDIOUT hInstrument;
-	size_t nCurrentNote[16]{ 0 };
-
-	double dSongTime = 0.0;
-	double dRunTime = 0.0;
-	uint32_t nMidiClock = 0;
-
-
-public:
-	bool OnUserCreate() override
-	{
-
-		midi.ParseFile("battle-theme.mid");
-
-		/
-		int nMidiDevices = midiOutGetNumDevs();
-		if (nMidiDevices > 0)
-		{
-			if (midiOutOpen(&hInstrument, 2, NULL, 0, NULL) == MMSYSERR_NOERROR)
-			{
-				std::cout << "Opened midi" << std::endl;
-				change to push
-			}
-		}
-		/
-
-
-		return true;
-	}
-
-	float nTrackOffset = 1000;
-
-	bool OnUserUpdate(float fElapsedTime) override
-	{
-		Clear(olc::BLACK);
-		uint32_t nTimePerColumn = 50;
-		uint32_t nNoteHeight = 2;
-		uint32_t nOffsetY = 0;
-
-		if (GetKey(olc::Key::LEFT).bHeld) nTrackOffset -= 10000.0f * fElapsedTime;
-		if (GetKey(olc::Key::RIGHT).bHeld) nTrackOffset += 10000.0f * fElapsedTime;
-
-
-		for (auto& track : midi.vecTracks)
-		{
-			if (!track.vecNotes.empty())
-			{
-				uint32_t nNoteRange = track.nMaxNote - track.nMinNote;
-
-				FillRect(0, nOffsetY, ScreenWidth(), (nNoteRange + 1) * nNoteHeight, olc::DARK_GREY);
-				DrawString(1, nOffsetY + 1, track.sName);
-
-				for (auto& note : track.vecNotes)
-				{
-					FillRect((note.nStartTime - nTrackOffset) / nTimePerColumn, (nNoteRange - (note.nKey - track.nMinNote)) * nNoteHeight + nOffsetY, note.nDuration / nTimePerColumn, nNoteHeight, olc::WHITE);
-				}
-
-				nOffsetY += (nNoteRange + 1) * nNoteHeight + 4;
-			}
-		}
-
-		return true;
-	}
-
-
-};
-*/
-/*
-int main()
-{
-	olcMIDIViewer demo;
-	if (demo.Construct(1280, 960, 1, 1))
-		demo.Start();
-	return 0;
-}
-*/

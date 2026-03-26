@@ -41,9 +41,12 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 	editorPanel->Bind(wxEVT_LEFT_DCLICK, &EditorFrame::OnDoubleClick, this);
 	
 	
+
 	editorPanel->FlipGridFlag();
+
 	DrawMIDIEvents(trackNumber, midi);
 	//editorPanel->FlipGridFlag();
+
 	
 	
 }
