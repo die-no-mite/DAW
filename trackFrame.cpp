@@ -42,6 +42,9 @@ void TrackFrame::OnPaint(wxPaintEvent& evt)
 			
 
 		}
+
+		gc->SetBrush(wxBrush(wxColor(0, 0, 0)));
+		gc->DrawRectangle(10, 0, 5, 300);
 		delete gc;
 
 	}

@@ -12,6 +12,7 @@ MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const 
 
 	this->Bind(wxEVT_PAINT, &MidiFrame::OnPaint, this);
 	this->Bind(wxEVT_LEFT_DOWN, &MidiFrame::OnMouseDown, this);
+	this->Bind(wxEVT_RIGHT_DOWN, &MidiFrame::OnMouseDown, this);
 	this->Bind(wxEVT_MOTION, &MidiFrame::OnMouseMove, this);
 	this->Bind(wxEVT_LEFT_UP, &MidiFrame::OnMouseUp, this);
 	this->Bind(wxEVT_LEAVE_WINDOW, &MidiFrame::OnMouseLeave, this);
@@ -64,6 +65,7 @@ void MidiFrame::OnMouseEvent(wxMouseEvent &evt)
 
 void MidiFrame::OnPaint(wxPaintEvent& evt)
 {
+	
 	wxAutoBufferedPaintDC dc(this);
 	dc.Clear();
 
@@ -71,17 +73,48 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 
 	if (gc)
 	{
-		for (const auto& object : noteList) {
+		if (gridFlag)
+		{
+			if (tempo != 0)
+			{ 
+				gc->SetBrush(wxBrush(wxColor(0, 0, 0)));
+				for (int i = 10; i < 10000; i += tempo)
+				{
+					
+					gc->DrawRectangle(i, 0, 1, 600);
+					
+				}
+				for (int i = 20; i < 10000; i += 20)
+				{
+					
+					gc->DrawRectangle(0, i - 170, 1200, 1);
+				}
+			}
+			
+		}
+		for (const auto& object : noteList) 
+		{
 			
 			gc->SetTransform(gc->CreateMatrix(object.transform));
 			
 			gc->SetBrush(wxBrush(object.color));
-			gc->DrawRectangle(object.note.m_x, object.note.m_y, object.note.m_width, object.note.m_height);
 
+			if (gridSnap)
+			{ 
+				gc->DrawRectangle((std::round(object.note.m_x / (tempo/16))) * (tempo/16), (std::round(object.note.m_y / 50)) * 50, object.note.m_width, object.note.m_height);
+				gridSnap = false;
+				
+				//object.note.m_x = (std::round(object.note.m_x / (tempo / 16))) * (tempo / 16);
+				//object.note.m_y = (std::round(object.note.m_y / 50)) * 50;
+			}
+			else
+				gc->DrawRectangle(object.note.m_x, object.note.m_y, object.note.m_width, object.note.m_height);
+			
 		}
-		delete gc;
+		
 		
 	}
+	delete gc;
 }
 
 void MidiFrame::OnMouseDown(wxMouseEvent& event)
@@ -178,6 +211,8 @@ void MidiFrame::OnMouseLeave(wxMouseEvent& event)
 
 void MidiFrame::finishDrag()
 {
+	gridSnap = true;
+	Refresh();
 	draggedObj = nullptr;
 }
 
@@ -202,4 +237,17 @@ void MidiFrame::sendNoteRemovedEvent()
 	//event.SetString(rectTitle);
 
 	ProcessWindowEvent(event);
+}
+
+void MidiFrame::FlipGridFlag()
+{
+	if (gridFlag)
+		gridFlag = false;
+	else
+		gridFlag = true;
+}
+
+void MidiFrame::SetTempo(int newtempo)
+{
+	tempo = newtempo;
 }

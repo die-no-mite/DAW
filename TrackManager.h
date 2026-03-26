@@ -14,6 +14,7 @@ public:
 	TrackFrame* getTrackFrame();
 	void setIndex(int index);
 	int getIndex();
+	void DetroyList();
 
 
 private:

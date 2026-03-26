@@ -29,3 +29,12 @@ int TrackManager::getIndex()
 {
 	return index;
 }
+
+void TrackManager::DetroyList()
+{
+	for (int i = 0; i < trackList.size(); i++)
+	{
+		trackList[i]->Destroy();
+	}
+	trackList.erase(trackList.begin(), trackList.end());
+}

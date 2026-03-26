@@ -20,6 +20,9 @@ public:
 	void removeTopNote();
 
 	int getObjectCount() { return noteList.size(); }
+
+	void FlipGridFlag();
+	void SetTempo(int newtempo);
 private:
 	
 	void OnPaint(wxPaintEvent& evt);
@@ -35,12 +38,16 @@ private:
 	void sendNoteAddedEvent();
 	void sendNoteRemovedEvent();
 
+	int tempo = 0;
+
 	std::list<GraphicMIDIEvent> noteList;
 	
 	GraphicMIDIEvent *draggedObj;
 
 	bool shouldExtend;
 	bool selected;
+	bool gridFlag = false;
+	bool gridSnap = false;
 
 	wxPoint2DDouble lastDragOrigin;
 	
