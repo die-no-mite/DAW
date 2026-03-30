@@ -298,6 +298,10 @@ void MyFrame::OnOpen(wxCommandEvent& event)
 		midi = new MidiFile();
 		midi->ParseFile(fileLocation);
 		//fileReady = fileLocation;
+
+		//removes any empty tracks
+		midi->vecTracks.erase(std::remove_if(midi->vecTracks.begin(), midi->vecTracks.end(),
+			[](const MidiTrack& t) {return t.vecNotes.empty(); }), midi->vecTracks.end());
 		
 		isFileOpen = true;
 
@@ -418,14 +422,14 @@ MidiFrame* MyFrame::BuildTrackPanel(wxWindow* parent, int trackNumber)
 	}
 	else
 	{
-		int currentID = 8000;
+		
 		//fills vector with midiframes per track and adds them to the sizer
 		for (int i = 0; i < trackNumber; i++)
 		{
 			trackList->setIndex(i);
-			trackList->addTrack(new TrackFrame(trackPanel, currentID, wxDefaultPosition, wxSize(200, 100)));
+			trackList->addTrack(new TrackFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
 			trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
-			trackIDs.push_back(currentID);
+			trackIDs.push_back(trackList->getTrackFrame()->GetId());
 			if (i == 0)
 				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
 			else if (i == trackNumber - 1)
@@ -433,8 +437,9 @@ MidiFrame* MyFrame::BuildTrackPanel(wxWindow* parent, int trackNumber)
 			else
 				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
 
+			
 			trackList->getTrackFrame()->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnDoubleClick, this);
-			currentID++;
+			
 		}
 
 	}
@@ -459,8 +464,7 @@ void MyFrame::DrawMidiTracks()
 
 	std::vector<float> currentYList;
 
-	std::ofstream file;
-	file.open("output.txt");
+	
 
 	for (auto& track : midi->vecTracks)
 	{
@@ -468,9 +472,11 @@ void MyFrame::DrawMidiTracks()
 		{
 			uint32_t noteRange = track.nMaxNote - track.nMinNote;
 			trackList->setIndex(i);
-			file << "new track" << std::endl;
 
-			// gets the note hieghts for each note in the track and pushes them into a vector
+			// clear the list for each new track
+			currentYList.clear();
+
+			// gets the note heights for each note in the track and pushes them into a vector
 			for (auto& note : track.vecNotes)
 			{
 
@@ -499,9 +505,8 @@ void MyFrame::DrawMidiTracks()
 			for (auto& note : track.vecNotes)
 			{
 				ypos = ScaleYCoord(currentYList[j], realMin, realMax);
-				file << currentYList[j] << " " << ypos << std::endl;
 				trackList->getTrackFrame()->addNote(note.nDuration / timePerColumn, noteHeight, (note.nStartTime - trackOffset) / timePerColumn, ypos);
-				//trackList->getTrackFrame()->addNote(note.nDuration / timePerColumn, noteHeight, (note.nStartTime - trackOffset) / timePerColumn, (noteRange - (note.nKey - track.nMinNote)) * noteHeight);
+				
 				j++;
 			}
 
@@ -550,8 +555,6 @@ void MyFrame::Setup()
 {
 	
 	mainSizer->Clear(true); // clears the main sizer, deleting it's contents in the process
-
-	
 	
 
 	//gets the number of tracks from the midi file and creates a vector (dynamic array) of panels of the size of the track number
@@ -606,11 +609,10 @@ float MyFrame::ScaleYCoord(float y, float min, float max)
 }
 
 
-
-
 //double click to open a track in the editor
 void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 {
+
 	for (int i = 0; i < trackIDs.size(); i++)
 	{
 		if (evt.GetId() == trackIDs[i]) // determines which track was opened and stores its index in the midi object
@@ -618,6 +620,7 @@ void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 			midi->currentTrack = i;
 		}
 	}
+	
 
 	EditorFrame* editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi);
 

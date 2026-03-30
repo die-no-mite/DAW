@@ -59,7 +59,7 @@ void TrackFrame::addNote(int width, int height, int centerX, int centerY)
 		-height / 2.0,
 		static_cast<double>(width),
 		static_cast<double>(height)},
-		wxColor(255,255,255),
+		wxColor(255,255,255), 0,
 		{}
 	};
 	obj.transform.Translate(static_cast<double>(centerX), static_cast<double>(centerY));

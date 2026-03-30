@@ -17,6 +17,7 @@ public:
 	virtual ~MidiFrame(){}
 
 	void addNote(int width, int height, int centerX, int centerY, wxColor color);
+	void addNote(int width, int height, int centerX, int centerY, wxColor color, int ID);
 	void removeTopNote();
 
 	int getObjectCount() { return noteList.size(); }
@@ -34,9 +35,11 @@ private:
 
 	void finishDrag();
 	void finishExtend();
+	void SnapToGrid();
 
 	void sendNoteAddedEvent();
 	void sendNoteRemovedEvent();
+	void sendUpdateNoteEvent();
 
 	int tempo = 0;
 

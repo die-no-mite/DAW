@@ -58,6 +58,14 @@ void EditorFrame::OnDoubleClick(wxMouseEvent& evt)
 	editorPanel->addNote(this->FromDIP(10), this->FromDIP(10), position.x, position.y, wxColor(255, 255, 255));
 }
 
+void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
+{
+	// will remove the top note (the one that was being dragged) and redraw the note
+	// at the snapped position, getting the width, height, and coordinates from
+	// the vector that hasn't been created yet. The vector will be searched for the
+	// correct ID to ensure that the correct note is being updated in the vector
+}
+
 void EditorFrame::DrawMIDIEvents(int trackNumber, MidiFile* midi)
 {
 	editorPanel->SetTempo(midi->m_nBPM);

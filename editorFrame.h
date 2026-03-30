@@ -18,6 +18,7 @@ public:
 private:
 
 	void OnDoubleClick(wxMouseEvent& evt);
+	void OnUpdateNote(wxCommandEvent& evt);
 
 	void DrawMIDIEvents(int trackNumber, MidiFile* midi);
 	
