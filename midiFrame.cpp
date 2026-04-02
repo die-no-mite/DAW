@@ -101,7 +101,7 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 			if (tempo != 0)
 			{ 
 				gc->SetBrush(wxBrush(wxColor(0, 0, 0)));
-				for (int i = 10; i < 10000; i += tempo)
+				for (int i = 10; i < 10000; i += (tempo) - 1)
 				{
 					
 					gc->DrawRectangle(i, 0, 1, 600);
