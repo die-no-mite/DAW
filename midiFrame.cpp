@@ -21,7 +21,6 @@ MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const 
 	this->Bind(wxEVT_LEAVE_WINDOW, &MidiFrame::OnMouseLeave, this);
 	this->Bind(wxEVT_RIGHT_DOWN, &MidiFrame::OnMouseEvent, this);
 
-
 	this->draggedObj = nullptr;
 	this->shouldExtend = false;
 
@@ -101,7 +100,7 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 			if (tempo != 0)
 			{ 
 				gc->SetBrush(wxBrush(wxColor(0, 0, 0)));
-				for (int i = 10; i < 10000; i += (tempo) - 1)
+				for (int i = 10; i < 10000; i += (tempo/4) - 1)
 				{
 					
 					gc->DrawRectangle(i, 0, 1, 600);
@@ -222,44 +221,6 @@ void MidiFrame::OnMouseMove(wxMouseEvent& event)
 	
 }
 
-void MidiFrame::SnapToGrid()
-{
-	if(draggedObj != nullptr)
-	{ 
-		/*
-		wxDouble snapX = draggedObj->note.m_x;
-		wxDouble snapY = draggedObj->note.m_y;
-		wxPoint2DDouble snapVector(snapX, snapY);
-
-		wxDouble targetX = std::round(lastDragOrigin.m_x / (tempo / 16)) * (tempo / 16);
-		wxDouble targetY = std::round(lastDragOrigin.m_y / 50) * 50;
-		wxPoint2DDouble targetVector(targetX, targetY);
-
-		
-
-		snapVector = targetVector - snapVector;
-		
-		auto inv = draggedObj->transform;
-		inv.Invert();
-
-		targetVector = inv.TransformDistance(targetVector);
-
-		draggedObj->transform.Translate(targetVector.m_x, targetVector.m_y);
-		
-
-		wxDouble width = draggedObj->note.m_x * 2;
-		wxDouble height = draggedObj->note.m_y * 2;
-
-		removeTopNote();
-		addNote(width, height, std::round(lastDragOrigin.m_x / (tempo / 8)) * (tempo / 8), std::round(lastDragOrigin.m_y / 20) * 20, wxColor(255,255,255));
-
-
-		Refresh();
-		*/
-		
-	}
-	
-}
 
 void MidiFrame::OnMouseUp(wxMouseEvent& event)
 {
@@ -272,8 +233,6 @@ void MidiFrame::OnMouseUp(wxMouseEvent& event)
 	}
 	
 }
-
-
 
 void MidiFrame::OnMouseLeave(wxMouseEvent& event)
 {

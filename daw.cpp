@@ -48,6 +48,7 @@ private:
 	wxPanel *BuildTrackInfoPanel(wxWindow* parent, int trackNumber);
 	MidiFrame* BuildTrackPanel(wxWindow* parent, int trackNumber);
 	void DrawMidiTracks();
+	void DrawMidiTrack(wxCommandEvent& event);
 	void Setup();
 	
 	wxSplitterWindow* ResetSplitter();
@@ -533,6 +534,14 @@ void MyFrame::DrawMidiTracks()
 
 }
 
+void MyFrame::DrawMidiTrack(wxCommandEvent& event)
+{
+	std::ofstream file;
+	file.open("output.txt");
+	file << "test3" << std::endl;
+	file.close();
+	SetStatusText("test");
+}
 
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	: wxFrame(nullptr, wxID_ANY, title, pos, size)
@@ -542,7 +551,6 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	mainSizer = new wxBoxSizer(wxHORIZONTAL);
 	
 	std::string pathName = ResolveMidiPath("battle-theme.mid");
-	//bool test = midi->ParseFile(pathName);
 
 	wxString worked;
 
@@ -593,6 +601,7 @@ void MyFrame::Setup()
 	mainSizer->Add(splitter, 1, wxEXPAND, 0);
 
 	canvas->Bind(wxEVT_SIZE, &MyFrame::OnCanvasResize, this);
+	canvas->Bind(UPDATE_TRACK, &MyFrame::DrawMidiTrack, this);
 
 	splitter->SplitVertically(trackInfoPanel, canvas);
 	splitter->SetSashPosition(FromDIP(220));

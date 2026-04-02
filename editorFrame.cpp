@@ -12,15 +12,12 @@
 #include <wx/stream.h>
 #include <fstream>
 
-
+wxDEFINE_EVENT(UPDATE_TRACK, wxCommandEvent);
 
 EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midi) : wxDialog(parent, id, title, pos, size, style, name)
 {
 	this->SetBackgroundStyle(wxBG_STYLE_PAINT);
-	
-	
-	file.open("output.txt");
-	
+		
 	wxPanel* piano = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(200,100));
 
 	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -37,6 +34,7 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 	this->SetSize(FromDIP(800), FromDIP(500));
 	//editorPanel->SetMinSize({ FromDIP(400), FromDIP(200) });
 	this->SetSizerAndFit(sizer);
+	this->Bind(wxEVT_CLOSE_WINDOW, &EditorFrame::OnClose, this);
 	
 	trackNumber = midi->currentTrack;
 	editorPanel->SetBackgroundColour(wxColor(70, 70, 70));
@@ -69,9 +67,6 @@ void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 	bool foundFlag = false;
 	targetIndex = 0;
 	
-	
-
-	
 	for (auto element : notesStored)
 	{
 		if (element.noteID = currentID)
@@ -86,9 +81,6 @@ void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 	{
 		newX = std::round(editorPanel->GetCoords().x / (editorPanel->GetTempo() / 8)) * (editorPanel->GetTempo() / 8);
 		newY = std::round(editorPanel->GetCoords().y / 20) * 20;
-
-		
-		file << newX << " " << newY << "test" << std::endl;
 		
 		notesStored[targetIndex].x = newX;
 		notesStored[targetIndex].y = newY;
@@ -131,12 +123,6 @@ void EditorFrame::DrawMIDIEvents(int trackNumber, MidiFile* midi)
 			realX = std::round(((note.nStartTime - trackOffset) / timePerColumn) / (editorPanel->GetTempo() / 8)) * (editorPanel->GetTempo() / 8);
 			realY = std::round((noteRange - (note.nKey - track.nMinNote)) * noteHeight / 20) * 20;
 
-			if (tester)
-			{
-			file << (note.nStartTime - trackOffset) / timePerColumn << " " << (noteRange - (note.nKey - track.nMinNote)) * noteHeight <<std::endl;
-			file << realX << " " << realY << std::endl;
-			tester = false;
-			}
 
 			LogNote(realX, realY, realDuration);
 			editorPanel->addNote(realDuration, noteHeight, realX, realY, wxColor(255, 255, 255), notesStored[notesStored.size()-1].noteID);
@@ -146,12 +132,40 @@ void EditorFrame::DrawMIDIEvents(int trackNumber, MidiFile* midi)
 }
 
 
-void EditorFrame::OnClose(wxCloseEvent& event) 
+void EditorFrame::OnClose(wxCloseEvent& evt) 
 {
+	
+	for (int i = 0; i < notesStored.size() - 1; i++) 
+	{
+		for (int j = 0; j < notesStored.size() - i - 1; j++) 
+		{
+			if (notesStored[j].x > notesStored[j + 1].x) 
+			{
+				auto temp = notesStored[j];
+				notesStored[j] = notesStored[j + 1];
+				notesStored[j + 1] = temp;
+			
+			}
+		}
+	}
+	sendUpdateTrack();
 
+	Destroy();
 }
 
-void EditorFrame::LogNote(float xcoord, float ycoord, float len) {
+void EditorFrame::sendUpdateTrack()
+{
+	wxCommandEvent event(UPDATE_TRACK, GetId());
+
+	event.SetEventObject(this);
+
+	event.SetInt(trackNumber);
+
+	ProcessWindowEvent(event);
+}
+
+void EditorFrame::LogNote(float xcoord, float ycoord, float len) 
+{
 	noteInfo newNote;
 	newNote.noteID = giveID;
 	newNote.x = xcoord;
