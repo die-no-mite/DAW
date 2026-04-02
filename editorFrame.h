@@ -14,11 +14,13 @@ public:
 	EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midi);
 	
 	MidiFrame* editorPanel = new MidiFrame(this, wxID_ANY, wxDefaultPosition, wxSize(800, 500));
-
+	std::ofstream file;
 private:
 
 	void OnDoubleClick(wxMouseEvent& evt);
 	void OnUpdateNote(wxCommandEvent& evt);
+	void FinishUpdateNote(wxCommandEvent& evt);
+	void OnClose(wxCloseEvent& evt);
 
 	void DrawMIDIEvents(int trackNumber, MidiFile* midi);
 	
@@ -32,5 +34,25 @@ private:
 	const wxImage image;
 
 	int trackNumber;
+
+	int newX, newY, newDuration;
+	int targetIndex = 0;
+
+	void LogNote(float xcoord, float ycoord, float len);
+
+	void LogMidiData();
+
+	struct noteInfo
+	{
+		int noteID;
+		float x;           //when played
+		float y;           //pitch
+		float length;      //duration
+
+	};
+
+	int giveID = 1;
+	std::vector<noteInfo> notesStored; //stores note info here
+	float placeholderLength = 10;
 
 };

@@ -7,6 +7,7 @@
 wxDEFINE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDEFINE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 wxDEFINE_EVENT(UPDATE_NOTE, wxCommandEvent);
+wxDEFINE_EVENT(FINISH_UPDATE_NOTE, wxCommandEvent);
 
 MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size) : wxScrolled<wxPanel>(parent, id, pos, size)
 {
@@ -152,11 +153,7 @@ void MidiFrame::OnMouseDown(wxMouseEvent& event)
 		noteList.erase(forwardIt);
 
 		draggedObj = &(*std::prev(noteList.end()));
-		std::ofstream file;
-		file.open("output.txt");
-		file << event.GetPosition().x << " " << event.GetPosition().y << std::endl;
 		
-		file.close();
 		lastDragOrigin = event.GetPosition();
 		shouldExtend = wxGetKeyState(WXK_ALT);
 
@@ -248,7 +245,7 @@ void MidiFrame::SnapToGrid()
 		targetVector = inv.TransformDistance(targetVector);
 
 		draggedObj->transform.Translate(targetVector.m_x, targetVector.m_y);
-		*/
+		
 
 		wxDouble width = draggedObj->note.m_x * 2;
 		wxDouble height = draggedObj->note.m_y * 2;
@@ -258,6 +255,7 @@ void MidiFrame::SnapToGrid()
 
 
 		Refresh();
+		*/
 		
 	}
 	
@@ -265,10 +263,17 @@ void MidiFrame::SnapToGrid()
 
 void MidiFrame::OnMouseUp(wxMouseEvent& event)
 {
-	SnapToGrid();
-	finishDrag();
-	finishExtend();
+	if(draggedObj != nullptr)
+	{ 
+		sendUpdateNoteEvent();
+		finishDrag();
+		finishExtend();
+		finishUpdateNoteEvent();
+	}
+	
 }
+
+
 
 void MidiFrame::OnMouseLeave(wxMouseEvent& event)
 {
@@ -288,9 +293,19 @@ void MidiFrame::finishExtend()
 
 void MidiFrame::sendUpdateNoteEvent()
 {
-	wxCommandEvent event(CANVAS_RECT_ADDED, GetId());
+	wxCommandEvent event(UPDATE_NOTE, GetId());
+
 	event.SetEventObject(this);
-	event.SetInt(draggedObj->noteID);
+
+	ProcessWindowEvent(event);
+}
+
+void MidiFrame::finishUpdateNoteEvent()
+{
+	wxCommandEvent event(FINISH_UPDATE_NOTE, GetId());
+
+	event.SetEventObject(this);
+
 	ProcessWindowEvent(event);
 }
 
@@ -324,4 +339,20 @@ void MidiFrame::FlipGridFlag()
 void MidiFrame::SetTempo(int newtempo)
 {
 	tempo = newtempo;
+}
+
+int MidiFrame::GetTempo()
+{
+	return tempo;
+}
+
+int MidiFrame::GetCurrentID()
+{
+	return draggedObj->noteID;
+}
+
+wxRealPoint MidiFrame::GetCoords()
+{
+	wxRealPoint coords(lastDragOrigin.m_x, lastDragOrigin.m_y);
+	return coords;
 }

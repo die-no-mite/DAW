@@ -143,3 +143,4 @@ void TrackFrame::finishDrag()
 {
 	draggedObj = nullptr;
 }
+

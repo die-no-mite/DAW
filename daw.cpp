@@ -40,7 +40,7 @@ public:
 	MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
 
 	float ScaleYCoord(float y, float min, float max);
-
+	int maxX = 0;
 	
 
 private:
@@ -86,6 +86,8 @@ private:
 
 	const std::string lightBackground = "#f4f3f3";
 	const std::string darkBackground = "#2c2828";
+
+	void OnCanvasResize(wxSizeEvent& event);
 };
 /*
 wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
@@ -401,6 +403,7 @@ MidiFrame* MyFrame::BuildTrackPanel(wxWindow* parent, int trackNumber)
 	auto* trackPanel = new MidiFrame(parent, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
 	
 	trackPanel->SetScrollRate(FromDIP(10), FromDIP(10));
+	trackPanel->SetVirtualSize(200, 100);
 	trackPanel->SetBackgroundColour(wxColor(70, 70, 70));
 
 	//sizers to handle both the splitter/track area panel and the track panels that sit within the track area panel
@@ -416,7 +419,7 @@ MidiFrame* MyFrame::BuildTrackPanel(wxWindow* parent, int trackNumber)
 	if (trackNumber == 1) //sets up track if there's only one track
 	{
 		trackList->setIndex(0);
-		trackList->addTrack(new TrackFrame(trackPanel, 8000, wxDefaultPosition, wxSize(200, 100)));
+		trackList->addTrack(new TrackFrame(trackPanel, 8000, wxDefaultPosition, wxSize(1000, 100)));
 		trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
 		trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL, 5);
 	}
@@ -427,7 +430,7 @@ MidiFrame* MyFrame::BuildTrackPanel(wxWindow* parent, int trackNumber)
 		for (int i = 0; i < trackNumber; i++)
 		{
 			trackList->setIndex(i);
-			trackList->addTrack(new TrackFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
+			trackList->addTrack(new TrackFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(1000, 100)));
 			trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
 			trackIDs.push_back(trackList->getTrackFrame()->GetId());
 			if (i == 0)
@@ -504,9 +507,17 @@ void MyFrame::DrawMidiTracks()
 			
 			for (auto& note : track.vecNotes)
 			{
+				int noteX = (note.nStartTime - trackOffset) / timePerColumn;
+				int noteW = note.nDuration / timePerColumn;
+
 				ypos = ScaleYCoord(currentYList[j], realMin, realMax);
 				trackList->getTrackFrame()->addNote(note.nDuration / timePerColumn, noteHeight, (note.nStartTime - trackOffset) / timePerColumn, ypos);
 				
+				// update maxX
+				if (noteX + noteW > maxX)
+					maxX = noteX + noteW;
+
+
 				j++;
 			}
 
@@ -517,6 +528,9 @@ void MyFrame::DrawMidiTracks()
 		}
 		i++;
 	}
+	canvas->SetVirtualSize(maxX + 50, canvas->GetVirtualSize().GetHeight());
+	canvas->SetScrollRate(FromDIP(10), FromDIP(10));
+
 }
 
 
@@ -578,6 +592,7 @@ void MyFrame::Setup()
 	
 	mainSizer->Add(splitter, 1, wxEXPAND, 0);
 
+	canvas->Bind(wxEVT_SIZE, &MyFrame::OnCanvasResize, this);
 
 	splitter->SplitVertically(trackInfoPanel, canvas);
 	splitter->SetSashPosition(FromDIP(220));
@@ -649,4 +664,20 @@ std::string MyFrame::ResolveMidiPath(std::string sMidiPath) const
 	}
 
 	return sMidiPath;
+}
+
+//Add in handler for Canvas resize using proper length of tracks
+void MyFrame::OnCanvasResize(wxSizeEvent& event)
+{
+	if (!canvas) return;
+
+	int clientWidth = canvas->GetClientSize().GetWidth();
+	int clientHeight = canvas->GetClientSize().GetHeight();
+
+	// Set virtual size of the canvas
+	canvas->SetVirtualSize(maxX + 250, canvas->GetVirtualSize().GetHeight());
+
+
+
+	event.Skip();
 }

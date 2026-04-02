@@ -8,6 +8,8 @@
 
 wxDECLARE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDECLARE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
+wxDECLARE_EVENT(UPDATE_NOTE, wxCommandEvent);
+wxDECLARE_EVENT(FINISH_UPDATE_NOTE, wxCommandEvent);
 
 class MidiFrame : public wxScrolled<wxPanel>
 {
@@ -24,6 +26,10 @@ public:
 
 	void FlipGridFlag();
 	void SetTempo(int newtempo);
+	int GetCurrentID();
+	wxRealPoint GetCoords();
+	int GetTempo();
+
 private:
 	
 	void OnPaint(wxPaintEvent& evt);
@@ -36,10 +42,12 @@ private:
 	void finishDrag();
 	void finishExtend();
 	void SnapToGrid();
+	void removeSecondNote();
 
 	void sendNoteAddedEvent();
 	void sendNoteRemovedEvent();
 	void sendUpdateNoteEvent();
+	void finishUpdateNoteEvent();
 
 	int tempo = 0;
 
