@@ -5,32 +5,33 @@
 #include "graphicMIDIevent.h"
 
 #include "midiFrame.h"
+#include "trackUpdateEvent.h"
 
 #include "MidiC.h"
-
-wxDECLARE_EVENT(UPDATE_TRACK, wxCommandEvent);
-
 
 class EditorFrame : public wxDialog
 {
 public:
+	EditorFrame();
 	EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midi);
+
+	MidiFrame* editorPanel;
 	
-	MidiFrame* editorPanel = new MidiFrame(this, wxID_ANY, wxDefaultPosition, wxSize(800, 500));
-	
+
 private:
 
 	void OnDoubleClick(wxMouseEvent& evt);
 	void OnUpdateNote(wxCommandEvent& evt);
 	void FinishUpdateNote(wxCommandEvent& evt);
-	
 	void sendUpdateTrack();
+
 	void OnClose(wxCloseEvent& evt);
 
-	void DrawMIDIEvents(int trackNumber, MidiFile* midi);
-	
-	
+	void DrawMIDIEvents(int trackNumber);
+
 	wxStaticBitmap* pianoImage;
+
+	MidiFile* midi;
 
 	std::list<GraphicMIDIEvent> noteList;
 

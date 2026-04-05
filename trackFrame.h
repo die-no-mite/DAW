@@ -16,7 +16,7 @@ public:
 	void addNote(int width, int height, int x, int y);
 private:
 
-	void OnDoubleClick(wxMouseEvent& evt);
+	void OnDoubleClick(wxCommandEvent& evt);
 	void OnPaint(wxPaintEvent& evt);
 	void removeTopNote(wxMouseEvent& evt);
 	void OnMouseDown(wxMouseEvent& event);

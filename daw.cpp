@@ -14,6 +14,7 @@
 #include "trackFrame.h"
 #include "TrackManager.h"
 #include "editorFrame.h"
+#include "trackUpdateEvent.h"
 
 #include <wx/wx.h>
 #include <wx/timer.h>
@@ -23,8 +24,6 @@
 
 
 //#pragma comment(lib, "winmm.lib")
-
-
 
 
 class MyApp : public wxApp
@@ -41,14 +40,13 @@ public:
 
 	float ScaleYCoord(float y, float min, float max);
 	int maxX = 0;
-	
+	void UpdateMidiTrack(int trackNumber);
 
 private:
 	
 	wxPanel *BuildTrackInfoPanel(wxWindow* parent, int trackNumber);
 	MidiFrame* BuildTrackPanel(wxWindow* parent, int trackNumber);
 	void DrawMidiTracks();
-	void DrawMidiTrack(wxCommandEvent& event);
 	void Setup();
 	
 	wxSplitterWindow* ResetSplitter();
@@ -60,8 +58,8 @@ private:
 
 	void OnDoubleClick(wxMouseEvent &event);
 
-
 	wxPanel* trackInfoPanel;
+	EditorFrame* editorWindow;
 
 	wxSplitterWindow* splitter;
 	wxBoxSizer* mainSizer;
@@ -90,89 +88,15 @@ private:
 
 	void OnCanvasResize(wxSizeEvent& event);
 };
-/*
-wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
-{
-	std::vector<wxString> form = {
-		{"Track 1"},
-		{"Track 2"},
-		{"Track 3"}
-	};
-}
-*/
-
-/*
-class MIDIPane : public wxPanel {
-public:
-
-	MIDIPane(wxFrame* parent);
-
-	void paintEvent(wxPaintEvent& evt);
-
-	//void OnQuit(wxCommandEvent& event);
-	//void OnAbout(wxCommandEvent& event);
 
 
-	void paintNow();
-
-	void render(wxDC& dc);
-
-	wxDECLARE_EVENT_TABLE();
-
-
-
-	//MIDIPane() : wxFrame(nullptr, wxID_ANY, "MIDI File Viewer", wxDefaultPosition, wxSize(1200, 800)), timer(this) {
-
-
-	//SetBackgroundStyle(wxBG_STYLE_PAINT);
-
-
-	//void OnTimer(wxTimerEvent& timer);
-
-	//timer.Start(16);
-	//}
-private:
-
-
-
-	MidiFile midi;
-	wxTimer timer;
-
-
-	size_t nCurrentNote[16]{};
-
-	double dSongTime = 0.0;
-	double dRunTime = 0.0;
-	uint32_t nMidiClock = 0;
-
-	float nTrackOffset = 1000.0f;
-
-	void OnTimer(wxTimerEvent&) {
-		Refresh(false);
-	}
-	void OnKeyDown(wxKeyEvent& key) {
-
-		switch (key.GetKeyCode()) {
-		case WXK_LEFT:
-			nTrackOffset -= 100;
-			break;
-		case WXK_RIGHT:
-			nTrackOffset += 100;
-		default:
-			key.Skip();
-		}
-	}
-
-
-
-};
-*/
 
 enum
 {
 	Minimal_Quit = wxID_EXIT,
 	Minimal_About = wxID_ABOUT
 };
+
 
 
 
@@ -385,6 +309,7 @@ wxIMPLEMENT_APP(MyApp);
 
 bool MyApp::OnInit()
 {
+	
 	wxInitAllImageHandlers();
 
 	if (!wxApp::OnInit())
@@ -407,7 +332,6 @@ MidiFrame* MyFrame::BuildTrackPanel(wxWindow* parent, int trackNumber)
 	trackPanel->SetVirtualSize(200, 100);
 	trackPanel->SetBackgroundColour(wxColor(70, 70, 70));
 
-	//sizers to handle both the splitter/track area panel and the track panels that sit within the track area panel
 
 	wxSizer* trackSizer = new wxBoxSizer(wxVERTICAL);
 
@@ -534,13 +458,36 @@ void MyFrame::DrawMidiTracks()
 
 }
 
-void MyFrame::DrawMidiTrack(wxCommandEvent& event)
+
+void MyFrame::UpdateMidiTrack(int trackNumber)
 {
-	std::ofstream file;
-	file.open("output.txt");
-	file << "test3" << std::endl;
-	file.close();
-	SetStatusText("test");
+	std::vector<float> currentYList;
+	float ypos = 0;
+	float realMin = 1000;
+	float realMax = 0;
+
+	for (auto& note : midi->vecTracks[trackNumber].vecNotes)
+	{
+
+	}
+
+	for (int i = 0; i < currentYList.size(); i++)
+	{
+		if (currentYList[i] != 0)
+		{
+			if (currentYList[i] < realMin)
+				realMin = currentYList[i];
+
+			if (currentYList[i] > realMax)
+				realMax = currentYList[i];
+		}
+	}
+
+	for (auto& note : midi->vecTracks[trackNumber].vecNotes)
+	{
+
+	}
+	
 }
 
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
@@ -601,7 +548,6 @@ void MyFrame::Setup()
 	mainSizer->Add(splitter, 1, wxEXPAND, 0);
 
 	canvas->Bind(wxEVT_SIZE, &MyFrame::OnCanvasResize, this);
-	canvas->Bind(UPDATE_TRACK, &MyFrame::DrawMidiTrack, this);
 
 	splitter->SplitVertically(trackInfoPanel, canvas);
 	splitter->SetSashPosition(FromDIP(220));
@@ -632,7 +578,6 @@ float MyFrame::ScaleYCoord(float y, float min, float max)
 	return scaledY;
 }
 
-
 //double click to open a track in the editor
 void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 {
@@ -646,9 +591,15 @@ void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 	}
 	
 
-	EditorFrame* editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi);
+	editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi);
 
+	editorWindow->Bind(EVT_UPDATE_TRACK, [&](TrackUpdateEvent& event) {
+		int trackToUpdate = event.GetTrackNumber();
+		UpdateMidiTrack(trackToUpdate);
+		});
 	editorWindow->ShowModal();
+	
+	
 	
 }
 
@@ -685,7 +636,6 @@ void MyFrame::OnCanvasResize(wxSizeEvent& event)
 
 	// Set virtual size of the canvas
 	canvas->SetVirtualSize(maxX + 250, canvas->GetVirtualSize().GetHeight());
-
 
 
 	event.Skip();

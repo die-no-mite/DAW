@@ -11,6 +11,7 @@ wxDECLARE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 wxDECLARE_EVENT(UPDATE_NOTE, wxCommandEvent);
 wxDECLARE_EVENT(FINISH_UPDATE_NOTE, wxCommandEvent);
 
+
 class MidiFrame : public wxScrolled<wxPanel>
 {
 public:
@@ -29,6 +30,10 @@ public:
 	int GetCurrentID();
 	wxRealPoint GetCoords();
 	int GetTempo();
+	void sendUpdateTrack();
+	void sendNoteAddedEvent();
+
+
 
 private:
 	
@@ -44,10 +49,10 @@ private:
 	void SnapToGrid();
 	void removeSecondNote();
 
-	void sendNoteAddedEvent();
 	void sendNoteRemovedEvent();
 	void sendUpdateNoteEvent();
 	void finishUpdateNoteEvent();
+
 
 	int tempo = 0;
 

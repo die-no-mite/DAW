@@ -5,22 +5,28 @@
 #include "MidiNote.h"
 #include "MidiTrack.h"
 
-
 #include <wx/graphics.h>
 #include <wx/dcbuffer.h>
 #include <wx/sizer.h>
 #include <wx/stream.h>
 #include <fstream>
 
-wxDEFINE_EVENT(UPDATE_TRACK, wxCommandEvent);
+EditorFrame::EditorFrame() //: wxDialog(parent, id, title, pos, size, style, name)
+{
 
-EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midi) : wxDialog(parent, id, title, pos, size, style, name)
+}
+
+EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midifile) : wxDialog(parent, id, title, pos, size, style, name)
 {
 	this->SetBackgroundStyle(wxBG_STYLE_PAINT);
+
+	midi = midifile;
 		
 	wxPanel* piano = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(200,100));
 
 	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
+
+	editorPanel = new MidiFrame(this, wxID_ANY, wxDefaultPosition, wxSize(800, 500));
 
 	editorPanel->SetScrollRate(FromDIP(10), FromDIP(10));
 	
@@ -46,7 +52,7 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 	editorPanel->SetTempo(midi->m_nBPM);
 	editorPanel->FlipGridFlag();
 
-	DrawMIDIEvents(trackNumber, midi);
+	DrawMIDIEvents(trackNumber);
 	//editorPanel->FlipGridFlag();
 
 	
@@ -87,10 +93,7 @@ void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 		newDuration = notesStored[targetIndex].length;
 	
 	}
-	// will remove the top note (the one that was being dragged) and redraw the note
-	// at the snapped position, getting the width, height, and coordinates from
-	// the vector that hasn't been created yet. The vector will be searched for the
-	// correct ID to ensure that the correct note is being updated in the vector
+	
 }
 
 void EditorFrame::FinishUpdateNote(wxCommandEvent& evt)
@@ -101,14 +104,26 @@ void EditorFrame::FinishUpdateNote(wxCommandEvent& evt)
 	editorPanel->addNote(newDuration, noteHeight, newX, newY, wxColor(255, 255, 255), notesStored[targetIndex].noteID);
 }
 
-void EditorFrame::DrawMIDIEvents(int trackNumber, MidiFile* midi)
+
+void EditorFrame::sendUpdateTrack()
 {
-	
+	TrackUpdateEvent event(EVT_UPDATE_TRACK);
+
+	event.SetTrackNumber(trackNumber);
+	event.SetEventObject(this);
+
+	ProcessWindowEvent(event);
+}
+
+
+
+void EditorFrame::DrawMIDIEvents(int trackNumber)
+{
+
 	auto& track = midi->vecTracks[trackNumber];
 	int realDuration;
 	int realX;
 	int realY;
-	bool tester = true;
 
 	if (!track.vecNotes.empty())
 	{
@@ -132,7 +147,7 @@ void EditorFrame::DrawMIDIEvents(int trackNumber, MidiFile* midi)
 }
 
 
-void EditorFrame::OnClose(wxCloseEvent& evt) 
+void EditorFrame::OnClose(wxCloseEvent& event) 
 {
 	
 	for (int i = 0; i < notesStored.size() - 1; i++) 
@@ -148,21 +163,13 @@ void EditorFrame::OnClose(wxCloseEvent& evt)
 			}
 		}
 	}
+	LogMidiData();
 	sendUpdateTrack();
 
 	Destroy();
 }
 
-void EditorFrame::sendUpdateTrack()
-{
-	wxCommandEvent event(UPDATE_TRACK, GetId());
 
-	event.SetEventObject(this);
-
-	event.SetInt(trackNumber);
-
-	ProcessWindowEvent(event);
-}
 
 void EditorFrame::LogNote(float xcoord, float ycoord, float len) 
 {
@@ -178,8 +185,22 @@ void EditorFrame::LogNote(float xcoord, float ycoord, float len)
 }
 
 
-void EditorFrame::LogMidiData() {
-	//MIDI DATA UPDATING GOES HERE, GET DATA FROM notesStored
+void EditorFrame::LogMidiData() 
+{
+	auto& currentTrack = midi->vecTracks[trackNumber];  
+	uint32_t noteRange = currentTrack.nMaxNote - currentTrack.nMinNote;
+	auto& minNote = currentTrack.nMinNote;
+	currentTrack.vecNotes.clear();
+	auto& noteVector = currentTrack.vecNotes;
+	for (auto& note : notesStored)
+	{
+		MidiNote noteToAdd;
+		noteToAdd.nStartTime = note.x + -170 * 10; // -170 is the trackoffset, *10 is the time per column
+		noteToAdd.nDuration = note.length * 10 + 4;
+		noteToAdd.nKey = (-noteRange - (note.y/17) + minNote);
+		noteVector.push_back(noteToAdd);
+	}
+	midi->vecTracks[trackNumber].vecNotes = noteVector;
 }
 
 

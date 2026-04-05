@@ -1,4 +1,6 @@
+
 #include "midiFrame.h"
+
 #include <wx/graphics.h>
 #include <wx/dcbuffer.h>
 #include <fstream>
@@ -8,6 +10,8 @@ wxDEFINE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDEFINE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 wxDEFINE_EVENT(UPDATE_NOTE, wxCommandEvent);
 wxDEFINE_EVENT(FINISH_UPDATE_NOTE, wxCommandEvent);
+
+
 
 MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size) : wxScrolled<wxPanel>(parent, id, pos, size)
 {
@@ -267,6 +271,8 @@ void MidiFrame::finishUpdateNoteEvent()
 
 	ProcessWindowEvent(event);
 }
+
+
 
 void MidiFrame::sendNoteAddedEvent()
 {

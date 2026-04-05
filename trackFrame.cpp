@@ -11,15 +11,13 @@ TrackFrame::TrackFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, cons
 {
 	this->SetBackgroundStyle(wxBG_STYLE_PAINT);
 
-	this->Bind(wxEVT_LEFT_DCLICK, &TrackFrame::OnDoubleClick, this);
 	this->Bind(wxEVT_PAINT, &TrackFrame::OnPaint, this);
 	this->Bind(wxEVT_RIGHT_DOWN, &TrackFrame::removeTopNote, this);
 
 }
 
-void TrackFrame::OnDoubleClick(wxMouseEvent& evt)
+void TrackFrame::OnDoubleClick(wxCommandEvent& evt)
 {
-	
 	
 }
 
