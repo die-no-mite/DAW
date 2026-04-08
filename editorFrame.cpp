@@ -186,6 +186,7 @@ void EditorFrame::DrawMIDIEvents(int trackNumber)
 		{
 			realDuration = note.nDuration / timePerColumn;
 			realX = std::round(((note.nStartTime - trackOffset) / timePerColumn) / ((editorPanel->GetTempo() + var) / 8)) * ((editorPanel->GetTempo() + var) / 8);
+
 			realY = std::round((noteRange - (note.nKey - track.nMinNote)) * noteHeight / 20) * 20;
 			int realKey = note.nKey;
 			LogNote(realX, realY, realDuration);

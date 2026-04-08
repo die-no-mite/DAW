@@ -15,6 +15,8 @@
 #include "TrackManager.h"
 #include "editorFrame.h"
 #include "trackUpdateEvent.h"
+#include "allegro.h"
+
 
 #include <wx/wx.h>
 #include <wx/timer.h>
