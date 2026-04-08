@@ -10,6 +10,10 @@ wxDECLARE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
 wxDECLARE_EVENT(CANVAS_RECT_REMOVED, wxCommandEvent);
 wxDECLARE_EVENT(UPDATE_NOTE, wxCommandEvent);
 wxDECLARE_EVENT(FINISH_UPDATE_NOTE, wxCommandEvent);
+wxDECLARE_EVENT(REMOVED_NOTE, wxCommandEvent);
+wxDECLARE_EVENT(RELATIVE_POSITION, wxCommandEvent);
+wxDECLARE_EVENT(SCALE_EVENT, wxCommandEvent);
+
 
 
 class MidiFrame : public wxScrolled<wxPanel>
@@ -33,7 +37,7 @@ public:
 	void sendUpdateTrack();
 	void sendNoteAddedEvent();
 
-
+	bool shouldExtend;
 
 private:
 	
@@ -46,12 +50,11 @@ private:
 
 	void finishDrag();
 	void finishExtend();
-	void SnapToGrid();
-	void removeSecondNote();
 
-	void sendNoteRemovedEvent();
+	void sendNoteRemovedEvent(int ID);
 	void sendUpdateNoteEvent();
 	void finishUpdateNoteEvent();
+	void sendRelativePositionEvent();
 
 
 	int tempo = 0;
@@ -60,11 +63,12 @@ private:
 	
 	GraphicMIDIEvent *draggedObj;
 
-	bool shouldExtend;
 	bool selected;
 	bool gridFlag = false;
 	bool gridSnap = false;
+	bool shouldMove;
 
 	wxPoint2DDouble lastDragOrigin;
+	int lastDraggedID = -1;
 	
 };

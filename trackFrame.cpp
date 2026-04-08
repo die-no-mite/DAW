@@ -78,67 +78,8 @@ void TrackFrame::removeTopNote(wxMouseEvent& evt)
 	}
 }
 
-void TrackFrame::OnMouseDown(wxMouseEvent& event)
+void TrackFrame::ClearTrack()
 {
-	auto clickedObjectIter = std::find_if(noteList.rbegin(), noteList.rend(), [event](const GraphicMIDIEvent& o)
-		{
-			wxPoint2DDouble clickPos = event.GetPosition();
-			auto inv = o.transform;
-			inv.Invert();
-			clickPos = inv.TransformPoint(clickPos);
-			return o.note.Contains(clickPos);
-		});
-
-	if (clickedObjectIter != noteList.rend())
-	{
-		auto forwardIt = std::prev(clickedObjectIter.base());
-
-		noteList.push_back(*forwardIt);
-		noteList.erase(forwardIt);
-
-		draggedObj = &(*std::prev(noteList.end()));
-
-		lastDragOrigin = event.GetPosition();
-
-
-		Refresh(); // for z order reversal
-	}
+	this->noteList.clear();
+	Refresh();
 }
-
-void TrackFrame::OnMouseMove(wxMouseEvent& event)
-{
-	if (draggedObj != nullptr)
-	{
-	
-		auto dragVector = event.GetPosition() - lastDragOrigin;
-
-		auto inv = draggedObj->transform;
-		inv.Invert();
-		dragVector = inv.TransformDistance(dragVector);
-
-		draggedObj->transform.Translate(dragVector.m_x, dragVector.m_y);
-
-
-		lastDragOrigin = event.GetPosition();
-		Refresh();
-		
-	}
-}
-
-void TrackFrame::OnMouseUp(wxMouseEvent& event)
-{
-	finishDrag();
-	
-}
-
-void TrackFrame::OnMouseLeave(wxMouseEvent& event)
-{
-	finishDrag();
-	
-}
-
-void TrackFrame::finishDrag()
-{
-	draggedObj = nullptr;
-}
-

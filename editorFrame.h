@@ -23,9 +23,11 @@ private:
 	void OnDoubleClick(wxMouseEvent& evt);
 	void OnUpdateNote(wxCommandEvent& evt);
 	void FinishUpdateNote(wxCommandEvent& evt);
+	void OnRemoveNote(wxCommandEvent& evt);
 	void sendUpdateTrack();
 
 	void OnClose(wxCloseEvent& evt);
+	void OnRelativePostitionEvent(wxCommandEvent& evt);
 
 	void DrawMIDIEvents(int trackNumber);
 
@@ -40,9 +42,12 @@ private:
 	const wxImage image;
 
 	int trackNumber;
+	std::ofstream file;
+	int var = 25;
 
 	int newX, newY, newDuration;
 	int targetIndex = 0;
+	float relativePosition;
 
 	void LogNote(float xcoord, float ycoord, float len);
 
@@ -60,5 +65,7 @@ private:
 	int giveID = 1;
 	std::vector<noteInfo> notesStored; //stores note info here
 	float placeholderLength = 10;
+
+	std::vector<int> notesToRemove;
 
 };
