@@ -17,27 +17,19 @@
 #include "trackUpdateEvent.h"
 #include "allegro.h"
 
-
 #include <wx/wx.h>
 #include <wx/timer.h>
 #include <wx/wrapsizer.h>
 #include <wx/splitter.h>
 
+#include "Windows.h"
+#pragma comment(lib, "winmm.lib")
 
 
-//#pragma comment(lib, "winmm.lib")
-
-
-class MyApp : public wxApp
-{
-public:
-	virtual bool OnInit();
-};
 
 class MyFrame : public wxFrame
 {
 public:
-	void SetupInfoPanes(wxWindow* parent, wxSizer* sizer);
 	MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
 
 	float ScaleYCoord(float y, float min, float max);
@@ -45,6 +37,9 @@ public:
 	void UpdateMidiTrack(int trackNumber);
 
 private:
+	
+
+	
 
 	wxPanel* BuildTrackInfoPanel(wxWindow* parent, int trackNumber);
 	MidiFrame* BuildTrackPanel(wxWindow* parent, int trackNumber);
@@ -52,6 +47,8 @@ private:
 	void Setup();
 
 	wxSplitterWindow* ResetSplitter();
+
+	Alg_seq_ptr seq;
 
 	void BuildMenuBar();
 	void OnOpen(wxCommandEvent& event);
@@ -91,6 +88,12 @@ private:
 	void OnCanvasResize(wxSizeEvent& event);
 };
 
+class MyApp : public wxApp
+{
+public:
+	virtual bool OnInit();
+	
+};
 
 
 enum
@@ -113,7 +116,7 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 	auto mainSizer = new wxBoxSizer(wxVERTICAL);
 	auto perTrackSizer = new wxBoxSizer(wxVERTICAL);
 
-
+	
 
 	auto text = new wxStaticText(trackInfoPanel, wxID_ANY, "Track Information:");
 	auto text2 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
@@ -164,6 +167,7 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 
 	return trackInfoPanel;
 }
+
 
 void MyFrame::BuildMenuBar()
 {
@@ -225,8 +229,16 @@ void MyFrame::OnOpen(wxCommandEvent& event)
 		std::string pathName = ResolveMidiPath(fileLocation);
 		SetStatusText("Opened: " + pathName);
 		midi = new MidiFile();
+		std::ifstream ifile(pathName, std::ios::binary | std::ios::in);
+		seq = new Alg_seq(ifile, true);
 		midi->ParseFile(fileLocation);
+		ifile.close();
 		//fileReady = fileLocation;
+
+		std::ofstream file;
+		file.open("output.txt");
+		seq->write(file, false);
+		file.close();
 
 		//removes any empty tracks
 		midi->vecTracks.erase(std::remove_if(midi->vecTracks.begin(), midi->vecTracks.end(),
@@ -613,15 +625,19 @@ void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 	}
 
 
-	editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi);
+	editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi, seq);
 
 	editorWindow->Bind(EVT_UPDATE_TRACK, [&](TrackUpdateEvent& event) {
 		int trackToUpdate = event.GetTrackNumber();
 		UpdateMidiTrack(trackToUpdate);
 		});
 	editorWindow->ShowModal();
-
-
+	
+	std::ofstream file;
+	file.open("output.txt");
+	seq->write(file, false);
+	file.close();
+	
 
 }
 
@@ -662,3 +678,72 @@ void MyFrame::OnCanvasResize(wxSizeEvent& event)
 
 	event.Skip();
 }
+
+// Plays a specified MIDI file by using MCI_OPEN and MCI_PLAY. Returns 
+// as soon as playback begins. The window procedure function for the 
+// specified window will be notified when playback is complete. 
+// Returns 0L on success; otherwise, it returns an MCI error code.
+/*
+DWORD playMIDIFile(HWND hWndNotify, LPSTR lpszMIDIFileName)
+{
+	UINT wDeviceID;
+	DWORD dwReturn;
+	MCI_OPEN_PARMS mciOpenParms;
+	MCI_PLAY_PARMS mciPlayParms;
+	MCI_STATUS_PARMS mciStatusParms;
+	MCI_SEQ_SET_PARMS mciSeqSetParms;
+
+	// Open the device by specifying the device and filename.
+	// MCI will attempt to choose the MIDI mapper as the output port.
+	mciOpenParms.lpstrDeviceType = "sequencer";
+	mciOpenParms.lpstrElementName = lpszMIDIFileName;
+	if (dwReturn = mciSendCommand(NULL, MCI_OPEN,
+		MCI_OPEN_TYPE | MCI_OPEN_ELEMENT,
+		(DWORD_PTR)(LPVOID)&mciOpenParms))
+	{
+		// Failed to open device. Don't close it; just return error.
+		return (dwReturn);
+	}
+
+	// The device opened successfully; get the device ID.
+	wDeviceID = mciOpenParms.wDeviceID;
+
+	// Check if the output port is the MIDI mapper.
+	mciStatusParms.dwItem = MCI_SEQ_STATUS_PORT;
+	if (dwReturn = mciSendCommand(wDeviceID, MCI_STATUS,
+		MCI_STATUS_ITEM, (DWORD_PTR)(LPVOID)&mciStatusParms))
+	{
+		mciSendCommand(wDeviceID, MCI_CLOSE, 0, NULL);
+		return (dwReturn);
+	}
+
+	// The output port is not the MIDI mapper. 
+	// Ask if the user wants to continue.
+	if (LOWORD(mciStatusParms.dwReturn) != MIDI_MAPPER)
+	{
+		if (MessageBox(hMainWnd,
+			"The MIDI mapper is not available. Continue?",
+			"", MB_YESNO) == IDNO)
+		{
+			// User does not want to continue. Not an error;
+			// just close the device and return.
+			mciSendCommand(wDeviceID, MCI_CLOSE, 0, NULL);
+			return (0L);
+		}
+	}
+
+	// Begin playback. The window procedure function for the parent 
+	// window will be notified with an MM_MCINOTIFY message when 
+	// playback is complete. At this time, the window procedure closes 
+	// the device.
+	mciPlayParms.dwCallback = (DWORD_PTR)hWndNotify;
+	if (dwReturn = mciSendCommand(wDeviceID, MCI_PLAY, MCI_NOTIFY,
+		(DWORD_PTR)(LPVOID)&mciPlayParms))
+	{
+		mciSendCommand(wDeviceID, MCI_CLOSE, 0, NULL);
+		return (dwReturn);
+	}
+
+	return (0L);
+}
+*/

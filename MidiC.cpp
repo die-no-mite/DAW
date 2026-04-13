@@ -102,7 +102,7 @@
 		ifs.read((char*)&n16, sizeof(uint16_t));
 		uint16_t nTrackChunks = Swap16(n16);
 		ifs.read((char*)&n16, sizeof(uint16_t));
-		uint16_t nDivision = Swap16(n16);
+		nDivision = Swap16(n16);
 
 		for (uint16_t nChunk = 0; nChunk < nTrackChunks; nChunk++)
 		{
@@ -285,11 +285,14 @@
 							std::cout << "SMPTE: H:" << ifs.get() << " M:" << ifs.get() << " S:" << ifs.get() << " FR:" << ifs.get() << " FF:" << ifs.get() << std::endl;
 							break;
 						case MetaTimeSignature:
-							std::cout << "Time Signature: " << ifs.get() << "/" << (2 << ifs.get()) << std::endl;
+							timeSigNum = ifs.get();
+							timeSigDen = (2 << ifs.get());
+							std::cout << "Time Signature: " << timeSigNum << "/" << timeSigDen << std::endl;
 							std::cout << "ClocksPerTick: " << ifs.get() << std::endl;
 
 							// A MIDI "Beat" is 24 ticks, so specify how many 32nd notes constitute a beat
-							std::cout << "32per24Clocks: " << ifs.get() << std::endl;
+							n32PerBeat = ifs.get();
+							std::cout << "32per24Clocks: " << n32PerBeat << std::endl;
 							break;
 						case MetaKeySignature:
 							std::cout << "Key Signature: " << ifs.get() << std::endl;

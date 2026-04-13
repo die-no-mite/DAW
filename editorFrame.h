@@ -3,17 +3,17 @@
 #include <wx/wx.h>
 
 #include "graphicMIDIevent.h"
-
 #include "midiFrame.h"
 #include "trackUpdateEvent.h"
-
 #include "MidiC.h"
+
+#include "allegro.h"
 
 class EditorFrame : public wxDialog
 {
 public:
 	EditorFrame();
-	EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midi);
+	EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midi, Alg_seq_ptr algseq);
 
 	MidiFrame* editorPanel;
 	
@@ -44,6 +44,8 @@ private:
 	int trackNumber;
 	std::ofstream file;
 	int var = 25;
+
+	Alg_seq_ptr seq;
 
 	int newX, newY, newDuration;
 	int targetIndex = 0;

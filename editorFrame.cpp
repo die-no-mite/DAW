@@ -5,6 +5,8 @@
 #include "MidiNote.h"
 #include "MidiTrack.h"
 
+#include "allegro.h"
+
 #include <wx/graphics.h>
 #include <wx/dcbuffer.h>
 #include <wx/sizer.h>
@@ -16,10 +18,10 @@ EditorFrame::EditorFrame() //: wxDialog(parent, id, title, pos, size, style, nam
 
 }
 
-EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midifile) : wxDialog(parent, id, title, pos, size, style, name)
+EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midifile, Alg_seq_ptr algseq) : wxDialog(parent, id, title, pos, size, style, name)
 {
 	this->SetBackgroundStyle(wxBG_STYLE_PAINT);
-
+	seq = algseq;
 	midi = midifile;
 	file.open("output.txt");
 		
@@ -55,18 +57,15 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 	editorPanel->SetTempo(midi->m_nBPM);
 	editorPanel->FlipGridFlag();
 
-	DrawMIDIEvents(trackNumber);
-	//editorPanel->FlipGridFlag();
-
-	
-	
+	DrawMIDIEvents(trackNumber);	
+	file << midi->m_nTempo << std::endl;
 }
 
 void EditorFrame::OnDoubleClick(wxMouseEvent& evt)
 {
 	auto position = evt.GetPosition();
 	
-	editorPanel->addNote(this->FromDIP(10), 17, position.x, position.y, wxColor(255, 255, 255), giveID);
+	editorPanel->addNote(this->FromDIP(10), 17, std::round(position.x / ((editorPanel->GetTempo() + var) / 8)) * ((editorPanel->GetTempo() + var) / 8), std::round(position.y / 20) * 20, wxColor(255, 255, 255), giveID);
 	LogNote(position.x, position.y, this->FromDIP(10));
 }
 
@@ -182,11 +181,12 @@ void EditorFrame::DrawMIDIEvents(int trackNumber)
 		uint32_t noteRange = track.nMaxNote - track.nMinNote;
 		int realRange = noteRange;
 		float trackOffset = -170;
+
 		for (auto& note : track.vecNotes)
 		{
 			realDuration = note.nDuration / timePerColumn;
 			realX = std::round(((note.nStartTime - trackOffset) / timePerColumn) / ((editorPanel->GetTempo() + var) / 8)) * ((editorPanel->GetTempo() + var) / 8);
-
+			//realX = ((note.nStartTime - trackOffset) / timePerColumn);
 			realY = std::round((noteRange - (note.nKey - track.nMinNote)) * noteHeight / 20) * 20;
 			int realKey = note.nKey;
 			LogNote(realX, realY, realDuration);
@@ -235,6 +235,7 @@ void EditorFrame::LogNote(float xcoord, float ycoord, float len)
 
 void EditorFrame::LogMidiData() 
 {
+
 	auto& currentTrack = midi->vecTracks[trackNumber];  
 	uint32_t noteRange = currentTrack.nMaxNote - currentTrack.nMinNote;
 	int realNoteRange = noteRange;
@@ -242,17 +243,43 @@ void EditorFrame::LogMidiData()
 	currentTrack.vecNotes.clear();
 	auto& noteVector = currentTrack.vecNotes;
 
+	int timePerBeat = midi->m_nTempo;
+	float timePerMeasure = timePerBeat * midi->timeSigNum;
+	int beatOffset = 0;
+	float newBeat;
+	auto algtrack = seq->track(trackNumber+3);
+	algtrack->convert_to_beats();
+	algtrack->clear(1, algtrack->last_note_off + 10, true);
+
+	file << "time per beat: " << timePerBeat << std::endl;
+
+	float microPerBeat = float(timePerBeat) / float(midi->nDivision);
+
 	for (auto& note : notesStored)
 	{
 		MidiNote noteToAdd;
-		noteToAdd.nStartTime = note.x * 10 + -170; // -170 is the trackoffset, *10 is the time per column
+		noteToAdd.nStartTime = (note.x * 10 + -170) - 80; // -170 is the trackoffset, *10 is the time per column
 		noteToAdd.nDuration = note.length * 10;
 		noteToAdd.nKey = -((note.y - noteRange * 17 - minNote * 17) / 17);
 		noteVector.push_back(noteToAdd);
 		int realKey = noteToAdd.nKey;
+		int realStart = noteToAdd.nStartTime / 1400; 
 		
+		file << "start time: " << noteToAdd.nStartTime;
+		
+		if (noteToAdd.nStartTime != 0)
+			newBeat =  float(noteToAdd.nStartTime * microPerBeat * 4) / float(timePerMeasure);
+		else
+			newBeat = 0;
+		file << " new beat: " << newBeat << std::endl;
+		
+
+		
+		auto algNote = algtrack->create_note(newBeat, 0, 0, noteToAdd.nKey, 127, noteToAdd.nDuration);
+		algtrack->add(algNote);
 	}
 	midi->vecTracks[trackNumber].vecNotes = noteVector;
+	
 }
 
 

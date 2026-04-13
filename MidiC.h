@@ -61,8 +61,11 @@ class MidiFile {
         uint32_t m_nTempo = 0;
         uint32_t m_nBPM = 0;
         uint16_t nTrackChunks = 0;
+        uint16_t nDivision = 0;
 
         int currentTrack = 0;
+        int timeSigDen, timeSigNum;
+        int n32PerBeat;
         
 };
 
