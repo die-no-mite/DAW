@@ -58,7 +58,8 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 	editorPanel->FlipGridFlag();
 
 	DrawMIDIEvents(trackNumber);	
-	file << midi->m_nTempo << std::endl;
+	seq->convert_to_beats();
+	file << (*seq->track(trackNumber + 3))[7]->get_duration() << std::endl;
 }
 
 void EditorFrame::OnDoubleClick(wxMouseEvent& evt)
@@ -170,7 +171,7 @@ void EditorFrame::sendUpdateTrack()
 void EditorFrame::DrawMIDIEvents(int trackNumber)
 {
 	auto& track = midi->vecTracks[trackNumber];
-	int realDuration;
+	double realDuration;
 	int realX;
 	int realY;
 
@@ -181,10 +182,15 @@ void EditorFrame::DrawMIDIEvents(int trackNumber)
 		uint32_t noteRange = track.nMaxNote - track.nMinNote;
 		int realRange = noteRange;
 		float trackOffset = -170;
-
+		int testing = track.vecNotes[7].nDuration;
+		file << testing << std::endl;
 		for (auto& note : track.vecNotes)
 		{
 			realDuration = note.nDuration / timePerColumn;
+			file << "before round: " << realDuration << std::endl;
+			realDuration = std::round(realDuration / ((editorPanel->GetTempo() + var) / 8)) * ((editorPanel->GetTempo() + var) / 8);
+			file << "after round: " << realDuration << std::endl;
+			file << "tempo: " << editorPanel->GetTempo() << std::endl;
 			realX = std::round(((note.nStartTime - trackOffset) / timePerColumn) / ((editorPanel->GetTempo() + var) / 8)) * ((editorPanel->GetTempo() + var) / 8);
 			//realX = ((note.nStartTime - trackOffset) / timePerColumn);
 			realY = std::round((noteRange - (note.nKey - track.nMinNote)) * noteHeight / 20) * 20;
@@ -235,7 +241,7 @@ void EditorFrame::LogNote(float xcoord, float ycoord, float len)
 
 void EditorFrame::LogMidiData() 
 {
-
+	std::vector<Alg_event_ptr> metaEvents;
 	auto& currentTrack = midi->vecTracks[trackNumber];  
 	uint32_t noteRange = currentTrack.nMaxNote - currentTrack.nMinNote;
 	int realNoteRange = noteRange;
@@ -249,10 +255,24 @@ void EditorFrame::LogMidiData()
 	float newBeat;
 	auto algtrack = seq->track(trackNumber+3);
 	algtrack->convert_to_beats();
-	algtrack->clear(1, algtrack->last_note_off + 10, true);
 
-	file << "time per beat: " << timePerBeat << std::endl;
-
+	int index = 0;
+	// an attempt to save the non-note events and add them back after clearing the track, doesnt work atm
+	/*
+	while (!(*seq->track(trackNumber + 3))[index]->is_note())
+	{
+		file << "test" << std::endl;
+		metaEvents.push_back((*seq->track(trackNumber + 3))[index]);
+		index++;
+	}
+	*/
+	algtrack->clear(0, algtrack->last_note_off + 10, true);
+	/*
+	for (int i = 0; i < metaEvents.size(); i++)
+	{
+		seq->add_event(metaEvents[i], trackNumber + 3);
+	}
+	*/
 	float microPerBeat = float(timePerBeat) / float(midi->nDivision);
 
 	for (auto& note : notesStored)
@@ -275,7 +295,8 @@ void EditorFrame::LogMidiData()
 		
 
 		
-		auto algNote = algtrack->create_note(newBeat, 0, 0, noteToAdd.nKey, 127, noteToAdd.nDuration);
+		auto algNote = algtrack->create_note(newBeat, 0, noteToAdd.nKey, noteToAdd.nKey, 127, double(noteToAdd.nDuration)/500.0);
+		
 		algtrack->add(algNote);
 	}
 	midi->vecTracks[trackNumber].vecNotes = noteVector;

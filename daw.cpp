@@ -23,6 +23,8 @@
 #include <wx/splitter.h>
 
 #include "Windows.h"
+#include "mmeapi.h"
+#include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
 
 
@@ -39,7 +41,7 @@ public:
 private:
 	
 
-	
+	void process(Alg_seq_ptr seq, double tempo);
 
 	wxPanel* BuildTrackInfoPanel(wxWindow* parent, int trackNumber);
 	MidiFrame* BuildTrackPanel(wxWindow* parent, int trackNumber);
@@ -299,6 +301,8 @@ bool LoadCustomMidi(const std::string& filename) {
 
 void MyFrame::OnSaveAs(wxCommandEvent& event)
 {
+	char* ext = NULL;
+
 	wxFileDialog openFileDialog(this, _("Open File"), "", "",
 		"MIDI files (*.mid)|*.mid|All files (*.*)|*.*",
 		wxFD_OPEN | wxFD_FILE_MUST_EXIST);
@@ -307,11 +311,26 @@ void MyFrame::OnSaveAs(wxCommandEvent& event)
 	{
 		wxString filePath = openFileDialog.GetPath();
 
-
+		
 		if (m_textCtrl)
 		{
 			m_textCtrl->LoadFile(filePath);
 		}
+		auto realFilePath = (const_cast<char*>((const char*)filePath.mb_str()));
+
+		int len = (int)strlen(filePath.mb_str());
+		ext = realFilePath + len - 4;
+		process(seq, midi->m_nBPM);
+
+		if (ext && strcmp(ext, ".gro") == 0) {
+			ext = realFilePath + strlen(realFilePath) - 4;
+		}
+		else {
+			ext = realFilePath + strlen(realFilePath);
+		}
+
+		strcpy(ext, ".mid");
+		seq->smf_write(realFilePath);
 
 		SetStatusText("Saved: " + filePath);
 	}
@@ -592,6 +611,10 @@ void MyFrame::Setup()
 
 
 	DrawMidiTracks();
+	std::ofstream file;
+	file.open("output.txt");
+	file << midiOutGetDevCapsW() << std::endl;
+	file.close();
 }
 
 
@@ -632,11 +655,12 @@ void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 		UpdateMidiTrack(trackToUpdate);
 		});
 	editorWindow->ShowModal();
-	
+	/*
 	std::ofstream file;
 	file.open("output.txt");
 	seq->write(file, false);
 	file.close();
+	*/
 	
 
 }
@@ -677,6 +701,18 @@ void MyFrame::OnCanvasResize(wxSizeEvent& event)
 
 
 	event.Skip();
+}
+
+void MyFrame::process(Alg_seq_ptr seq, double tempo)
+{
+	
+	seq->convert_to_beats(); // preserve beats
+	
+	// the following finishes both tempo and flatten processing...
+	seq->get_time_map()->beats.len = 1; // remove contents of tempo map
+	seq->get_time_map()->last_tempo = tempo / 60.0; // set the new fixed tempo
+	// (allegro uses beats/second so divide bpm by 60)
+	seq->get_time_map()->last_tempo_flag = true;
 }
 
 // Plays a specified MIDI file by using MCI_OPEN and MCI_PLAY. Returns 
