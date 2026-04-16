@@ -37,6 +37,13 @@ public:
 	void sendUpdateTrack();
 	void sendNoteAddedEvent();
 
+	void SetGridAnchor(int x, int y);
+	void ClearGridAnchor();
+	bool HasGridAnchor() const;
+	int GetGridAnchorX() const;
+	int GetGridAnchorY() const;
+
+
 	bool shouldExtend;
 
 private:
@@ -67,6 +74,10 @@ private:
 	bool gridFlag = false;
 	bool gridSnap = false;
 	bool shouldMove;
+
+	bool hasGridAnchor = false;
+	int gridAnchorX = 0;
+	int gridAnchorY = 0;
 
 	wxPoint2DDouble lastDragOrigin;
 	int lastDraggedID = -1;

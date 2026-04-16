@@ -16,6 +16,7 @@
 #include "editorFrame.h"
 #include "trackUpdateEvent.h"
 #include "allegro.h"
+#include "portmidi.h"
 
 #include <wx/wx.h>
 #include <wx/timer.h>
@@ -55,6 +56,7 @@ private:
 	void BuildMenuBar();
 	void OnOpen(wxCommandEvent& event);
 	void OnSaveAs(wxCommandEvent& event);
+	void OnSave(wxCommandEvent& event);
 	wxTextCtrl* m_textCtrl;
 
 	void OnDoubleClick(wxMouseEvent& event);
@@ -83,6 +85,7 @@ private:
 	bool reset = false;
 	bool isFileOpen = false;
 
+	std::string pathName = "";
 
 	const std::string lightBackground = "#f4f3f3";
 	const std::string darkBackground = "#2c2828";
@@ -180,6 +183,7 @@ void MyFrame::BuildMenuBar()
 	fileMenu->Append(wxID_OPEN);
 	Bind(wxEVT_MENU, &MyFrame::OnOpen, this, wxID_OPEN);
 	fileMenu->Append(wxID_SAVE);
+	Bind(wxEVT_MENU, &MyFrame::OnSave, this, wxID_SAVE);
 	fileMenu->Append(wxID_SAVEAS);
 	Bind(wxEVT_MENU, &MyFrame::OnSaveAs, this, wxID_SAVEAS);
 	fileMenu->Append(wxID_CLOSE);
@@ -228,7 +232,7 @@ void MyFrame::OnOpen(wxCommandEvent& event)
 		trackList->DetroyList();
 		trackInfoList->DetroyList();
 
-		std::string pathName = ResolveMidiPath(fileLocation);
+		pathName = ResolveMidiPath(fileLocation);
 		SetStatusText("Opened: " + pathName);
 		midi = new MidiFile();
 		std::ifstream ifile(pathName, std::ios::binary | std::ios::in);
@@ -257,84 +261,59 @@ void MyFrame::OnOpen(wxCommandEvent& event)
 	}
 }
 
-/*
-void MyFrame::OnOpen(wxCommandEvent& event)
-{
-	wxFileDialog openFileDialog(this, _("Open File"), "", "",
-		"MIDI files (*.mid)|*.mid|All files (*.*)|*.*",
-		wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
-	if (openFileDialog.ShowModal() == wxID_OK)
-	{
-		wxString filePath = openFileDialog.GetPath();
-
-		LoadCustomMidi(filePath);
-
-		//SetStatusText("Opened: " + filePath);
-	}
-
-}
-
-bool LoadCustomMidi(const std::string& filename) {
-	MidiFile* midi = new MidiFile;
-
-	if (m_textCtrl)
-	{
-		m_textCtrl->LoadFile(filename);
-	}
-
-	// Replace "battle-theme.mid" with the variable filename
-	std::string pathName = ResolveMidiPath(filename);
-
-	if (!midi->ParseFile(pathName)) {
-		std::cerr << "Error: Could not read file " << filename << std::endl;
-		delete midi;
-		return false;
-	}
-
-	SetStatusText("Opened: " + pathName);
-
-	delete midi;
-	return true;
-}
-*/
 
 void MyFrame::OnSaveAs(wxCommandEvent& event)
 {
-	char* ext = NULL;
-
-	wxFileDialog openFileDialog(this, _("Open File"), "", "",
+	wxFileDialog openFileDialog(this, _("Save As"), "", "",
 		"MIDI files (*.mid)|*.mid|All files (*.*)|*.*",
-		wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+		wxFD_SAVE);
 
 	if (openFileDialog.ShowModal() == wxID_OK)
 	{
 		wxString filePath = openFileDialog.GetPath();
 
 		
-		if (m_textCtrl)
-		{
-			m_textCtrl->LoadFile(filePath);
-		}
 		auto realFilePath = (const_cast<char*>((const char*)filePath.mb_str()));
 
-		int len = (int)strlen(filePath.mb_str());
-		ext = realFilePath + len - 4;
-		process(seq, midi->m_nBPM);
-
-		if (ext && strcmp(ext, ".gro") == 0) {
-			ext = realFilePath + strlen(realFilePath) - 4;
-		}
-		else {
-			ext = realFilePath + strlen(realFilePath);
-		}
-
-		strcpy(ext, ".mid");
+		//writes to the file
 		seq->smf_write(realFilePath);
+
+		trackList->DetroyList();
+		trackInfoList->DetroyList();
+
+		//opens the new file that was created/saved to
+		std::ifstream ifile(pathName, std::ios::binary | std::ios::in);
+		seq = new Alg_seq(ifile, true);
+		midi->ParseFile(pathName);
+		ifile.close();
+
+		//removes any empty tracks
+		midi->vecTracks.erase(std::remove_if(midi->vecTracks.begin(), midi->vecTracks.end(),
+			[](const MidiTrack& t) {return t.vecNotes.empty(); }), midi->vecTracks.end());
+
+		isFileOpen = true;
+		reset = true;
+
+		Setup();
 
 		SetStatusText("Saved: " + filePath);
 	}
 
+}
+
+void MyFrame::OnSave(wxCommandEvent& event)
+{
+	if (pathName != "")
+	{
+		wxString filePath = pathName;
+		auto realFilePath = (const_cast<char*>((const char*)filePath.mb_str()));
+
+
+		seq->smf_write(realFilePath);
+
+		SetStatusText("Saved: " + filePath);
+	}
 }
 
 
@@ -611,10 +590,7 @@ void MyFrame::Setup()
 
 
 	DrawMidiTracks();
-	std::ofstream file;
-	file.open("output.txt");
-	file << midiOutGetDevCapsW() << std::endl;
-	file.close();
+	
 }
 
 

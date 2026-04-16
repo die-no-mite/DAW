@@ -19,6 +19,13 @@ public:
 	
 
 private:
+	int GetGridStepX() const;
+	int GetGridStepY() const;
+	int SnapValue(int rawValue, int origin, int step) const;
+	int SnapX(int rawX);
+	int SnapY(int rawY);
+	void EnsureGridAnchor(int rawX, int rawY);
+	void ResetGridAnchorIfEmpty();
 
 	void OnDoubleClick(wxMouseEvent& evt);
 	void OnUpdateNote(wxCommandEvent& evt);
@@ -69,5 +76,9 @@ private:
 	float placeholderLength = 10;
 
 	std::vector<int> notesToRemove;
+
+	bool hasGridAnchor = false;
+	int gridAnchorX = 0;
+	int gridAnchorY = 0;
 
 };

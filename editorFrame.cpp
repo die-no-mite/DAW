@@ -62,17 +62,88 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 	file << (*seq->track(trackNumber + 3))[7]->get_duration() << std::endl;
 }
 
+int EditorFrame::GetGridStepX() const
+{
+	return std::max(1, (editorPanel->GetTempo() + var) / 8);
+}
+
+int EditorFrame::GetGridStepY() const
+{
+	return 20;
+}
+
+int EditorFrame::SnapValue(int rawValue, int origin, int step) const
+{
+	if (step <= 0)
+	{
+		return rawValue;
+	}
+
+	const double offset = static_cast<double>(rawValue - origin) / static_cast<double>(step);
+	return origin + static_cast<int>(std::round(offset)) * step;
+}
+
+void EditorFrame::EnsureGridAnchor(int rawX, int rawY)
+{
+	if (!hasGridAnchor)
+	{
+		hasGridAnchor = true;
+		gridAnchorX = rawX;
+		gridAnchorY = rawY;
+		if (editorPanel)
+		{
+			editorPanel->SetGridAnchor(gridAnchorX, gridAnchorY);
+		}
+	}
+}
+
+int EditorFrame::SnapX(int rawX)
+{
+	EnsureGridAnchor(rawX, gridAnchorY);
+	return SnapValue(rawX, gridAnchorX, GetGridStepX());
+}
+
+int EditorFrame::SnapY(int rawY)
+{
+	EnsureGridAnchor(gridAnchorX, rawY);
+	return SnapValue(rawY, gridAnchorY, GetGridStepY());
+}
+
+void EditorFrame::ResetGridAnchorIfEmpty()
+{
+	if (notesStored.empty())
+	{
+		hasGridAnchor = false;
+		gridAnchorX = 0;
+		gridAnchorY = 0;
+		if (editorPanel)
+		{
+			editorPanel->ClearGridAnchor();
+		}
+	}
+}
+
 void EditorFrame::OnDoubleClick(wxMouseEvent& evt)
 {
+	/*
 	auto position = evt.GetPosition();
 	
 	editorPanel->addNote(this->FromDIP(10), 17, std::round(position.x / ((editorPanel->GetTempo() + var) / 8)) * ((editorPanel->GetTempo() + var) / 8), std::round(position.y / 20) * 20, wxColor(255, 255, 255), giveID);
 	LogNote(position.x, position.y, this->FromDIP(10));
+	*/
+	const auto position = evt.GetPosition();
+	EnsureGridAnchor(position.x, position.y);
+
+	const int snappedX = SnapX(position.x);
+	const int snappedY = SnapY(position.y);
+
+	editorPanel->addNote(FromDIP(10), 17, snappedX, snappedY, wxColor(255, 255, 255), giveID);
+	LogNote(static_cast<float>(snappedX), static_cast<float>(snappedY), static_cast<float>(FromDIP(10)));
 }
 
 void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 {
-	
+	/*
 	int currentID = editorPanel->GetCurrentID();
 	bool foundFlag = false;
 	targetIndex = 0;
@@ -111,21 +182,76 @@ void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 			notesStored[targetIndex].length = newDuration;
 		}
 	}
+	*/
 	
+	const int currentID = editorPanel->GetCurrentID();
+	bool foundFlag = false;
+	targetIndex = 0;
+
+	for (const auto& element : notesStored)
+	{
+		if (element.noteID == currentID)
+		{
+			foundFlag = true;
+			break;
+		}
+		++targetIndex;
+	}
+
+	if (!foundFlag || targetIndex >= static_cast<int>(notesStored.size()))
+	{
+		return;
+	}
+
+	if (!editorPanel->shouldExtend)
+	{
+		const int rawX = static_cast<int>(editorPanel->GetCoords().x) - relativePosition;
+		const int rawY = static_cast<int>(editorPanel->GetCoords().y);
+
+		newX = static_cast<float>(SnapX(rawX));
+		newY = static_cast<float>(SnapY(rawY));
+		notesStored[targetIndex].x = newX;
+		notesStored[targetIndex].y = newY;
+		newDuration = notesStored[targetIndex].length;
+	}
+	else
+	{
+		newX = notesStored[targetIndex].x;
+		newY = notesStored[targetIndex].y;
+
+		const float durationCandidate = static_cast<float>(editorPanel->GetCoords().x) - newX;
+		if (durationCandidate > 0.0f)
+		{
+			newDuration = static_cast<float>(std::max(GetGridStepX(), SnapValue(static_cast<int>(durationCandidate), 0, GetGridStepX())));
+			notesStored[targetIndex].length = newDuration;
+		}
+		else
+		{
+			newDuration = notesStored[targetIndex].length;
+		}
+	}
 }
 
 void EditorFrame::FinishUpdateNote(wxCommandEvent& evt)
 {
+	/*
 	int noteHeight = 17;
 	file << newX << std::endl;
 	editorPanel->removeTopNote();
 	editorPanel->addNote(newDuration, noteHeight, newX, newY, wxColor(255, 255, 255), notesStored[targetIndex].noteID);
+	*/
+
+	constexpr int noteHeight = 17;
+	editorPanel->removeTopNote();
+	editorPanel->addNote(static_cast<int>(newDuration), noteHeight, static_cast<int>(newX), static_cast<int>(newY),
+		wxColor(255, 255, 255), notesStored[targetIndex].noteID);
 }
 
 // triggered when user clicks on a note, gets the distance between the left side of the note
 // (the x coordinate) and the mouse position for use during snapping
 void EditorFrame::OnRelativePostitionEvent(wxCommandEvent& evt)
 {
+	/*
 	auto xCoord = editorPanel->GetCoords().x;
 	int currentID = editorPanel->GetCurrentID();
 	bool foundFlag = false;
@@ -141,12 +267,27 @@ void EditorFrame::OnRelativePostitionEvent(wxCommandEvent& evt)
 		targetIndex++;
 	}
 	relativePosition = xCoord - notesStored[targetIndex].x;
+	*/
+
+	const auto xCoord = editorPanel->GetCoords().x;
+	const int currentID = editorPanel->GetCurrentID();
+	targetIndex = 0;
+
+	for (const auto& element : notesStored)
+	{
+		if (element.noteID == currentID)
+		{
+			relativePosition = static_cast<int>(xCoord - notesStored[targetIndex].x);
+			return;
+		}
+		++targetIndex;
+	}
 }
 
 
 void EditorFrame::OnRemoveNote(wxCommandEvent& evt)
 {
-	
+	/*
 	for (auto element : notesStored)
 	{
 		if (element.noteID == evt.GetInt())
@@ -156,6 +297,18 @@ void EditorFrame::OnRemoveNote(wxCommandEvent& evt)
 		targetIndex++;
 	}
 	notesStored.erase(notesStored.begin() + targetIndex);
+	*/
+	targetIndex = 0;
+	for (const auto& element : notesStored)
+	{
+		if (element.noteID == evt.GetInt())
+		{
+			notesStored.erase(notesStored.begin() + targetIndex);
+			ResetGridAnchorIfEmpty();
+			return;
+		}
+		++targetIndex;
+	}
 }
 
 void EditorFrame::sendUpdateTrack()
@@ -182,10 +335,9 @@ void EditorFrame::DrawMIDIEvents(int trackNumber)
 		uint32_t noteRange = track.nMaxNote - track.nMinNote;
 		int realRange = noteRange;
 		float trackOffset = -170;
-		int testing = track.vecNotes[7].nDuration;
-		file << testing << std::endl;
 		for (auto& note : track.vecNotes)
 		{
+			/*
 			realDuration = note.nDuration / timePerColumn;
 			file << "before round: " << realDuration << std::endl;
 			realDuration = std::round(realDuration / ((editorPanel->GetTempo() + var) / 8)) * ((editorPanel->GetTempo() + var) / 8);
@@ -197,7 +349,20 @@ void EditorFrame::DrawMIDIEvents(int trackNumber)
 			int realKey = note.nKey;
 			LogNote(realX, realY, realDuration);
 			editorPanel->addNote(realDuration, noteHeight, realX, realY, wxColor(255, 255, 255), notesStored[notesStored.size()-1].noteID);
+			*/
 
+			const int realDuration = static_cast<int>(note.nDuration / timePerColumn);
+			const int rawX = static_cast<int>((note.nStartTime - trackOffset) / timePerColumn);
+			const int rawY = static_cast<int>((noteRange - (note.nKey - track.nMinNote)) * noteHeight);
+
+			EnsureGridAnchor(rawX, rawY);
+
+			const int realX = SnapX(rawX);
+			const int realY = SnapY(rawY);
+
+			LogNote(static_cast<float>(realX), static_cast<float>(realY), static_cast<float>(realDuration));
+			editorPanel->addNote(realDuration, noteHeight, realX, realY, wxColor(255, 255, 255),
+				notesStored.back().noteID);
 		}
 	}
 }
@@ -212,9 +377,7 @@ void EditorFrame::OnClose(wxCloseEvent& event)
 		{
 			if (notesStored[j].x > notesStored[j + 1].x) 
 			{
-				auto temp = notesStored[j];
-				notesStored[j] = notesStored[j + 1];
-				notesStored[j + 1] = temp;
+				std::swap(notesStored[j], notesStored[j + 1]);
 			
 			}
 		}

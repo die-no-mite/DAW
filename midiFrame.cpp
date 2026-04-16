@@ -96,7 +96,7 @@ void MidiFrame::OnMouseEvent(wxMouseEvent &evt)
 
 void MidiFrame::OnPaint(wxPaintEvent& evt)
 {
-	
+	/*
 	wxAutoBufferedPaintDC dc(this);
 	dc.Clear();
 
@@ -136,6 +136,52 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 		
 		
 	}
+	delete gc;
+	*/
+	wxAutoBufferedPaintDC dc(this);
+	PrepareDC(dc);
+	dc.Clear();
+
+	wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
+	if (!gc)
+	{
+		return;
+	}
+
+	if (gridFlag && tempo != 0 && hasGridAnchor)
+	{
+		const int stepX = std::max(1, (tempo + 25) / 8);
+		const int stepY = 20;
+		const wxSize virtualSize = GetVirtualSize();
+
+		gc->SetBrush(wxBrush(wxColor(0, 0, 0)));
+
+		for (int x = gridAnchorX; x < virtualSize.GetWidth(); x += stepX)
+		{
+			gc->DrawRectangle(x, 0, 1, virtualSize.GetHeight());
+		}
+		for (int x = gridAnchorX - stepX; x >= 0; x -= stepX)
+		{
+			gc->DrawRectangle(x, 0, 1, virtualSize.GetHeight());
+		}
+
+		for (int y = gridAnchorY; y < virtualSize.GetHeight(); y += stepY)
+		{
+			gc->DrawRectangle(0, y, virtualSize.GetWidth(), 1);
+		}
+		for (int y = gridAnchorY - stepY; y >= 0; y -= stepY)
+		{
+			gc->DrawRectangle(0, y, virtualSize.GetWidth(), 1);
+		}
+	}
+
+	for (const auto& object : noteList)
+	{
+		gc->SetTransform(gc->CreateMatrix(object.transform));
+		gc->SetBrush(wxBrush(object.color));
+		gc->DrawRectangle(object.note.m_x + 1, object.note.m_y + 2, object.note.m_width, object.note.m_height);
+	}
+
 	delete gc;
 }
 
@@ -310,4 +356,35 @@ wxRealPoint MidiFrame::GetCoords()
 {
 	wxRealPoint coords(lastDragOrigin.m_x, lastDragOrigin.m_y);
 	return coords;
+}
+
+void MidiFrame::SetGridAnchor(int x, int y)
+{
+	hasGridAnchor = true;
+	gridAnchorX = x;
+	gridAnchorY = y;
+	Refresh();
+}
+
+void MidiFrame::ClearGridAnchor()
+{
+	hasGridAnchor = false;
+	gridAnchorX = 0;
+	gridAnchorY = 0;
+	Refresh();
+}
+
+bool MidiFrame::HasGridAnchor() const
+{
+	return hasGridAnchor;
+}
+
+int MidiFrame::GetGridAnchorX() const
+{
+	return gridAnchorX;
+}
+
+int MidiFrame::GetGridAnchorY() const
+{
+	return gridAnchorY;
 }
