@@ -16,11 +16,6 @@ TrackFrame::TrackFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, cons
 
 }
 
-void TrackFrame::OnDoubleClick(wxCommandEvent& evt)
-{
-	
-}
-
 void TrackFrame::OnPaint(wxPaintEvent& evt)
 {
 	
@@ -70,6 +65,7 @@ void TrackFrame::addNote(int width, int height, int centerX, int centerY)
 
 void TrackFrame::removeTopNote(wxMouseEvent& evt)
 {
+	evt.Skip();
 	if (!this->noteList.empty())
 	{
 		this->noteList.pop_back();

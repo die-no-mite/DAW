@@ -59,7 +59,6 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 
 	DrawMIDIEvents(trackNumber);	
 	seq->convert_to_beats();
-	file << (*seq->track(trackNumber + 3))[7]->get_duration() << std::endl;
 }
 
 int EditorFrame::GetGridStepX() const
@@ -125,6 +124,7 @@ void EditorFrame::ResetGridAnchorIfEmpty()
 
 void EditorFrame::OnDoubleClick(wxMouseEvent& evt)
 {
+	evt.Skip();
 	/*
 	auto position = evt.GetPosition();
 	

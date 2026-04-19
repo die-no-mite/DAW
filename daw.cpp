@@ -5,6 +5,7 @@
 #include <vector>
 #include <random>
 #include <filesystem>
+#include <thread>
 
 #include "MidiC.h"
 #include "MidiEvent.h"
@@ -15,20 +16,44 @@
 #include "TrackManager.h"
 #include "editorFrame.h"
 #include "trackUpdateEvent.h"
+
 #include "allegro.h"
 #include "portmidi.h"
+#include "seq2midi.h"
+#include "mfmidi.h"
 
 #include <wx/wx.h>
+#include <wx/event.h>
 #include <wx/timer.h>
 #include <wx/wrapsizer.h>
 #include <wx/splitter.h>
+#include <wx/thread.h>
 
 #include "Windows.h"
 #include "mmeapi.h"
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
 
+/*
+class MyFrame;
+class MyThread : public wxThread
+{
+public:
+	MyThread(MyFrame* handler) : wxThread(wxTHREAD_DETACHED)
+	{
+		m_pHandler = handler;
+	}
+	~MyThread();
+	void sendMidiSequence(Alg_seq_ptr seq);
+	void destroyMidiSequence();
 
+protected:
+	virtual ExitCode Entry();
+	MyFrame* m_pHandler;
+	Alg_seq_ptr threadSeq;
+
+};
+*/
 
 class MyFrame : public wxFrame
 {
@@ -38,9 +63,17 @@ public:
 	float ScaleYCoord(float y, float min, float max);
 	int maxX = 0;
 	void UpdateMidiTrack(int trackNumber);
+/*
+protected:
+	MyThread* m_pThread;
+	wxCriticalSection m_pThreadCS;    // protects the m_pThread pointer
+
+	friend class MyThread;
+*/
 
 private:
 	
+	std::jthread audioThread;
 
 	void process(Alg_seq_ptr seq, double tempo);
 
@@ -48,10 +81,13 @@ private:
 	MidiFrame* BuildTrackPanel(wxWindow* parent, int trackNumber);
 	void DrawMidiTracks();
 	void Setup();
+	void PlayMIDIFile(wxCommandEvent &event);
 
 	wxSplitterWindow* ResetSplitter();
 
 	Alg_seq_ptr seq;
+	Alg_seq seq2play;
+	MidiPlayer *midiPlayer = new MidiPlayer;
 
 	void BuildMenuBar();
 	void OnOpen(wxCommandEvent& event);
@@ -78,12 +114,11 @@ private:
 	MidiFrame* canvas;
 	MidiFile* midi = new MidiFile;
 
-	int rectCount = 0;
-	std::mt19937 randomGen;
-
-	bool isEditorOpen = false;
 	bool reset = false;
 	bool isFileOpen = false;
+	bool isPlaying = false;
+
+	int playButtonID;
 
 	std::string pathName = "";
 
@@ -112,62 +147,20 @@ enum
 
 wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 {
-	auto trackInfoPanel = new wxScrolled<wxPanel>(parent, wxID_ANY);
-	trackInfoPanel->SetScrollRate(0, FromDIP(10));
+	auto trackInfoPanel = new wxPanel(parent, wxID_ANY);
+	
 
 	bool isDark = wxSystemSettings::GetAppearance().IsDark();
 	trackInfoPanel->SetBackgroundColour(wxColor(isDark ? darkBackground : lightBackground));
 
 	auto mainSizer = new wxBoxSizer(wxVERTICAL);
-	auto perTrackSizer = new wxBoxSizer(wxVERTICAL);
 
+	wxButton* playButton = new wxButton(trackInfoPanel, wxID_ANY, "Play");
+	playButtonID = playButton->GetId();
+	mainSizer->Add(playButton, 0, wxTOP | wxALL);
 	
 
-	auto text = new wxStaticText(trackInfoPanel, wxID_ANY, "Track Information:");
-	auto text2 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
-	auto text3 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
-	auto text4 = new wxStaticText(trackInfoPanel, wxID_ANY, "");
-
-	mainSizer->Add(text, 0, wxALL, FromDIP(5));
-
-
-
-	std::string trackNumberText = "";
-	for (int i = 0; i < trackNumber; i++)
-	{
-		trackInfoList->setIndex(i);
-		trackInfoList->addTrack(new TrackFrame(trackInfoPanel, wxID_ANY, wxDefaultPosition, wxSize(200, 100)));
-		trackInfoList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
-		mainSizer->Add(trackInfoList->getTrackFrame(), 0, wxEXPAND | wxALL, 5);
-
-
-		trackNumberText = "Track #";
-		trackNumberText += std::to_string(i + 1);
-		perTrackSizer = new wxBoxSizer(wxVERTICAL);
-		text = new wxStaticText(trackInfoList->getTrackFrame(), wxID_ANY, trackNumberText);
-		text->SetForegroundColour(wxColor(255, 255, 255));
-		perTrackSizer->Add(text, 0, wxALL);
-
-
-		text2 = new wxStaticText(trackInfoList->getTrackFrame(), wxID_ANY, "");
-		perTrackSizer->Add(text2, 0, wxALL, FromDIP(5));
-		text3 = new wxStaticText(trackInfoList->getTrackFrame(), wxID_ANY, "");
-		perTrackSizer->Add(text3, 0, wxALL, FromDIP(5));
-		text4 = new wxStaticText(trackInfoList->getTrackFrame(), wxID_ANY, "");
-		perTrackSizer->Add(text4, 0, wxALL, FromDIP(5));
-
-
-
-		trackInfoList->getTrackFrame()->SetSizerAndFit(perTrackSizer);
-
-
-	}
-
-	mainSizer->AddStretchSpacer();
-
-	mainSizer->AddSpacer(FromDIP(5));
-
-	trackInfoPanel->SetSizer(mainSizer);
+	trackInfoPanel->SetSizerAndFit(mainSizer);
 
 
 	return trackInfoPanel;
@@ -204,12 +197,14 @@ void MyFrame::BuildMenuBar()
 
 	menuBar->Append(editMenu, "&Edit");
 
+	
+
 	SetMenuBar(menuBar);
 }
 
 void MyFrame::OnOpen(wxCommandEvent& event)
 {
-
+	event.Skip();
 	wxString wildcard = wxT("MIDI files (*.mid)|*.mid|All files (*.*)|*.*");
 
 	wxFileDialog openFileDialog(this, _("Open File"), "", "",
@@ -241,10 +236,7 @@ void MyFrame::OnOpen(wxCommandEvent& event)
 		ifile.close();
 		//fileReady = fileLocation;
 
-		std::ofstream file;
-		file.open("output.txt");
-		seq->write(file, false);
-		file.close();
+		
 
 		//removes any empty tracks
 		midi->vecTracks.erase(std::remove_if(midi->vecTracks.begin(), midi->vecTracks.end(),
@@ -259,12 +251,14 @@ void MyFrame::OnOpen(wxCommandEvent& event)
 		//user cancelled the dialog
 		SetStatusText("File selection cancelled.");
 	}
+	
 }
 
 
 
 void MyFrame::OnSaveAs(wxCommandEvent& event)
 {
+	event.Skip();
 	wxFileDialog openFileDialog(this, _("Save As"), "", "",
 		"MIDI files (*.mid)|*.mid|All files (*.*)|*.*",
 		wxFD_SAVE);
@@ -278,6 +272,7 @@ void MyFrame::OnSaveAs(wxCommandEvent& event)
 
 		//writes to the file
 		seq->smf_write(realFilePath);
+		pathName = realFilePath;
 
 		trackList->DetroyList();
 		trackInfoList->DetroyList();
@@ -299,11 +294,13 @@ void MyFrame::OnSaveAs(wxCommandEvent& event)
 
 		SetStatusText("Saved: " + filePath);
 	}
+	
 
 }
 
 void MyFrame::OnSave(wxCommandEvent& event)
 {
+	event.Skip();
 	if (pathName != "")
 	{
 		wxString filePath = pathName;
@@ -314,6 +311,7 @@ void MyFrame::OnSave(wxCommandEvent& event)
 
 		SetStatusText("Saved: " + filePath);
 	}
+	
 }
 
 
@@ -544,13 +542,36 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	CreateStatusBar(1);
 	SetStatusText(worked, 0);
 
-
 }
 
 wxSplitterWindow* MyFrame::ResetSplitter()
 {
 	return new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
 }
+
+
+void MyFrame::PlayMIDIFile(wxCommandEvent& event)
+{
+	if (!isPlaying)
+	{
+		const auto dawThread = [this]() {
+			seq2play = seq;
+			midiPlayer->seq_play(seq2play);
+		};
+		audioThread = std::jthread{ dawThread };
+		audioThread.detach();
+	}
+	else
+	{
+
+		midiPlayer->pauseMidi();
+		isPlaying = false;
+		
+	}
+	
+	//event.Skip();
+}
+
 
 void MyFrame::Setup()
 {
@@ -578,8 +599,10 @@ void MyFrame::Setup()
 	canvas = BuildTrackPanel(splitter, trackNumber);
 
 	mainSizer->Add(splitter, 1, wxEXPAND, 0);
-
+	
+	splitter->SetFocus();
 	canvas->Bind(wxEVT_SIZE, &MyFrame::OnCanvasResize, this);
+	Bind(wxEVT_BUTTON, &MyFrame::PlayMIDIFile, this);
 
 	splitter->SplitVertically(trackInfoPanel, canvas);
 	splitter->SetSashPosition(FromDIP(220));
@@ -592,7 +615,6 @@ void MyFrame::Setup()
 	DrawMidiTracks();
 	
 }
-
 
 float MyFrame::ScaleYCoord(float y, float min, float max)
 {
@@ -614,7 +636,7 @@ float MyFrame::ScaleYCoord(float y, float min, float max)
 //double click to open a track in the editor
 void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 {
-
+	evt.Skip();
 	for (int i = 0; i < trackIDs.size(); i++)
 	{
 		if (evt.GetId() == trackIDs[i]) // determines which track was opened and stores its index in the midi object
@@ -629,6 +651,7 @@ void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 	editorWindow->Bind(EVT_UPDATE_TRACK, [&](TrackUpdateEvent& event) {
 		int trackToUpdate = event.GetTrackNumber();
 		UpdateMidiTrack(trackToUpdate);
+		event.Skip();
 		});
 	editorWindow->ShowModal();
 	/*
@@ -638,7 +661,7 @@ void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 	file.close();
 	*/
 	
-
+	
 }
 
 std::string MyFrame::ResolveMidiPath(std::string sMidiPath) const
@@ -667,6 +690,7 @@ std::string MyFrame::ResolveMidiPath(std::string sMidiPath) const
 //Add in handler for Canvas resize using proper length of tracks
 void MyFrame::OnCanvasResize(wxSizeEvent& event)
 {
+	event.Skip();
 	if (!canvas) return;
 
 	int clientWidth = canvas->GetClientSize().GetWidth();
@@ -676,7 +700,7 @@ void MyFrame::OnCanvasResize(wxSizeEvent& event)
 	canvas->SetVirtualSize(maxX + 250, canvas->GetVirtualSize().GetHeight());
 
 
-	event.Skip();
+	
 }
 
 void MyFrame::process(Alg_seq_ptr seq, double tempo)
@@ -691,71 +715,34 @@ void MyFrame::process(Alg_seq_ptr seq, double tempo)
 	seq->get_time_map()->last_tempo_flag = true;
 }
 
-// Plays a specified MIDI file by using MCI_OPEN and MCI_PLAY. Returns 
-// as soon as playback begins. The window procedure function for the 
-// specified window will be notified when playback is complete. 
-// Returns 0L on success; otherwise, it returns an MCI error code.
 /*
-DWORD playMIDIFile(HWND hWndNotify, LPSTR lpszMIDIFileName)
+void MyThread::sendMidiSequence(Alg_seq_ptr newSeq)
 {
-	UINT wDeviceID;
-	DWORD dwReturn;
-	MCI_OPEN_PARMS mciOpenParms;
-	MCI_PLAY_PARMS mciPlayParms;
-	MCI_STATUS_PARMS mciStatusParms;
-	MCI_SEQ_SET_PARMS mciSeqSetParms;
+	threadSeq = newSeq;
+}
 
-	// Open the device by specifying the device and filename.
-	// MCI will attempt to choose the MIDI mapper as the output port.
-	mciOpenParms.lpstrDeviceType = "sequencer";
-	mciOpenParms.lpstrElementName = lpszMIDIFileName;
-	if (dwReturn = mciSendCommand(NULL, MCI_OPEN,
-		MCI_OPEN_TYPE | MCI_OPEN_ELEMENT,
-		(DWORD_PTR)(LPVOID)&mciOpenParms))
+void MyThread::destroyMidiSequence()
+{
+	threadSeq = nullptr;
+}
+
+wxThread::ExitCode MyThread::Entry()
+{
+	while (!TestDestroy())
 	{
-		// Failed to open device. Don't close it; just return error.
-		return (dwReturn);
+		Alg_seq seq2play = threadSeq;
+		//seq_play(seq2play);
+
 	}
 
-	// The device opened successfully; get the device ID.
-	wDeviceID = mciOpenParms.wDeviceID;
+	return (wxThread::ExitCode)0;     // success
+}
 
-	// Check if the output port is the MIDI mapper.
-	mciStatusParms.dwItem = MCI_SEQ_STATUS_PORT;
-	if (dwReturn = mciSendCommand(wDeviceID, MCI_STATUS,
-		MCI_STATUS_ITEM, (DWORD_PTR)(LPVOID)&mciStatusParms))
-	{
-		mciSendCommand(wDeviceID, MCI_CLOSE, 0, NULL);
-		return (dwReturn);
-	}
+MyThread::~MyThread()
+{
+	wxCriticalSectionLocker enter(m_pHandler->m_pThreadCS);
 
-	// The output port is not the MIDI mapper. 
-	// Ask if the user wants to continue.
-	if (LOWORD(mciStatusParms.dwReturn) != MIDI_MAPPER)
-	{
-		if (MessageBox(hMainWnd,
-			"The MIDI mapper is not available. Continue?",
-			"", MB_YESNO) == IDNO)
-		{
-			// User does not want to continue. Not an error;
-			// just close the device and return.
-			mciSendCommand(wDeviceID, MCI_CLOSE, 0, NULL);
-			return (0L);
-		}
-	}
-
-	// Begin playback. The window procedure function for the parent 
-	// window will be notified with an MM_MCINOTIFY message when 
-	// playback is complete. At this time, the window procedure closes 
-	// the device.
-	mciPlayParms.dwCallback = (DWORD_PTR)hWndNotify;
-	if (dwReturn = mciSendCommand(wDeviceID, MCI_PLAY, MCI_NOTIFY,
-		(DWORD_PTR)(LPVOID)&mciPlayParms))
-	{
-		mciSendCommand(wDeviceID, MCI_CLOSE, 0, NULL);
-		return (dwReturn);
-	}
-
-	return (0L);
+	// the thread is being destroyed; make sure not to leave dangling pointers around
+	m_pHandler->m_pThread = NULL;
 }
 */

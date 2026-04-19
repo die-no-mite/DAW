@@ -87,7 +87,7 @@ void MidiFrame::removeTopNote()
 //Removes Note when the note is right clicked
 void MidiFrame::OnMouseEvent(wxMouseEvent &evt)
 {
-
+	evt.Skip();
 	sendNoteRemovedEvent(lastDraggedID);
 	finishDrag();
 	finishExtend();
@@ -158,20 +158,20 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 
 		for (int x = gridAnchorX; x < virtualSize.GetWidth(); x += stepX)
 		{
-			gc->DrawRectangle(x, 0, 1, virtualSize.GetHeight());
+			gc->DrawRectangle(FromDIP(x), 0, 1, FromDIP(virtualSize.GetHeight()));
 		}
 		for (int x = gridAnchorX - stepX; x >= 0; x -= stepX)
 		{
-			gc->DrawRectangle(x, 0, 1, virtualSize.GetHeight());
+			gc->DrawRectangle(FromDIP(x), 0, 1, FromDIP(virtualSize.GetHeight()));
 		}
 
 		for (int y = gridAnchorY; y < virtualSize.GetHeight(); y += stepY)
 		{
-			gc->DrawRectangle(0, y, virtualSize.GetWidth(), 1);
+			gc->DrawRectangle(0, FromDIP(y), FromDIP(virtualSize.GetWidth()), 1);
 		}
 		for (int y = gridAnchorY - stepY; y >= 0; y -= stepY)
 		{
-			gc->DrawRectangle(0, y, virtualSize.GetWidth(), 1);
+			gc->DrawRectangle(0, FromDIP(y), FromDIP(virtualSize.GetWidth()), 1);
 		}
 	}
 
@@ -179,7 +179,7 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 	{
 		gc->SetTransform(gc->CreateMatrix(object.transform));
 		gc->SetBrush(wxBrush(object.color));
-		gc->DrawRectangle(object.note.m_x + 1, object.note.m_y + 2, object.note.m_width, object.note.m_height);
+		gc->DrawRectangle(FromDIP(object.note.m_x + 1), FromDIP(object.note.m_y + 2), FromDIP(object.note.m_width), FromDIP(object.note.m_height));
 	}
 
 	delete gc;
@@ -187,7 +187,7 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 
 void MidiFrame::OnMouseDown(wxMouseEvent& event)
 {
-	
+	event.Skip();
 	auto clickedObjectIter = std::find_if(noteList.rbegin(), noteList.rend(), [event](const GraphicMIDIEvent& o)
 		{
 			wxPoint2DDouble clickPos = event.GetPosition();
@@ -225,7 +225,7 @@ void MidiFrame::OnMouseDown(wxMouseEvent& event)
 
 void MidiFrame::OnMouseMove(wxMouseEvent& event)
 {
-	
+	event.Skip();
 	if (shouldMove)
 	{
 		if (draggedObj != nullptr)
@@ -252,7 +252,7 @@ void MidiFrame::OnMouseMove(wxMouseEvent& event)
 
 void MidiFrame::OnMouseUp(wxMouseEvent& event)
 {
-	
+	event.Skip();
 	if(draggedObj != nullptr)
 	{ 
 		sendUpdateNoteEvent();
