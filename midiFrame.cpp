@@ -57,20 +57,31 @@ void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor
 void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor color, int ID)
 {
 	GraphicMIDIEvent obj{
-		{static_cast<double>(centerX),
-		static_cast<double>(centerY),
+		{static_cast<double>(centerX - (xShift * xStep)),
+		static_cast<double>(centerY - (yShift * yStep)),
 		static_cast<double>(width),
 		static_cast<double>(height)},
 		color, ID,
 		{}
 	};
 	//obj.transform.Translate(static_cast<double>(centerX), static_cast<double>(centerY));
-
+	setShiftedCoords(obj.note.m_x, obj.note.m_y);
 
 	this->noteList.push_back(obj);
 
 	sendNoteAddedEvent();
 	Refresh();
+}
+
+void MidiFrame::setShiftedCoords(double x, double y)
+{
+	shiftedCoords.x = x;
+	shiftedCoords.y = y;
+}
+
+wxRealPoint MidiFrame::GetShiftedCoords()
+{
+	return shiftedCoords;
 }
 
 void MidiFrame::removeTopNote()
@@ -148,10 +159,10 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 		return;
 	}
 
-	if (gridFlag && tempo != 0 && hasGridAnchor)
+	if (gridFlag && division != 0 && hasGridAnchor)
 	{
-		const int stepX = std::max(1, (tempo + 25) / 8);
-		const int stepY = 20;
+		const int stepX = std::max(1, (division / 20));
+		const int stepY = 17;
 		const wxSize virtualSize = GetVirtualSize();
 
 		gc->SetBrush(wxBrush(wxColor(0, 0, 0)));
@@ -179,21 +190,49 @@ void MidiFrame::OnPaint(wxPaintEvent& evt)
 	{
 		gc->SetTransform(gc->CreateMatrix(object.transform));
 		gc->SetBrush(wxBrush(object.color));
-		gc->DrawRectangle(FromDIP(object.note.m_x + 1), FromDIP(object.note.m_y + 2), FromDIP(object.note.m_width), FromDIP(object.note.m_height));
+		gc->DrawRectangle(FromDIP((object.note.m_x + 1) + (xShift * xStep)), FromDIP((object.note.m_y + 1) + (yShift * yStep)), FromDIP(object.note.m_width - 1), FromDIP(object.note.m_height - 1));
 	}
 
 	delete gc;
 }
 
+void MidiFrame::ShiftNotes(char direction, int stepx, int stepy)
+{
+	if (direction == 'l')
+	{
+		if (xShift < 0)
+			xShift++;
+	}
+	else if (direction == 'r')
+	{
+		
+		xShift--;
+	}
+	else if (direction == 'u')
+	{
+		yShift++;
+	}
+	else if (direction == 'd')
+	{
+		yShift--;
+	}
+	xStep = stepx;
+	yStep = stepy;
+	
+	Refresh();
+}
+
 void MidiFrame::OnMouseDown(wxMouseEvent& event)
 {
 	event.Skip();
-	auto clickedObjectIter = std::find_if(noteList.rbegin(), noteList.rend(), [event](const GraphicMIDIEvent& o)
+	auto clickedObjectIter = std::find_if(noteList.rbegin(), noteList.rend(), [event, this](const GraphicMIDIEvent& o)
 		{
 			wxPoint2DDouble clickPos = event.GetPosition();
 			auto inv = o.transform;
 			inv.Invert();
 			clickPos = inv.TransformPoint(clickPos);
+			clickPos.m_x -= (xShift * xStep);
+			clickPos.m_y -= (yShift * yStep);
 			return o.note.Contains(clickPos);
 		});
 
@@ -214,6 +253,7 @@ void MidiFrame::OnMouseDown(wxMouseEvent& event)
 		shouldExtend = wxGetKeyState(WXK_ALT);
 
 		Refresh(); // for z order reversal
+		setShiftedCoords(lastDragOrigin.m_x - (xShift * xStep), lastDragOrigin.m_y - (yShift * yStep));
 		sendRelativePositionEvent();
 		if (event.GetButton() == wxMOUSE_BTN_LEFT)
 			shouldMove = true;
@@ -337,19 +377,19 @@ void MidiFrame::FlipGridFlag()
 		gridFlag = true;
 }
 
-void MidiFrame::SetTempo(int newtempo)
+void MidiFrame::SetDivision(int newdivision)
 {
-	tempo = newtempo;
+	division = newdivision;
 }
 
-int MidiFrame::GetTempo()
+int MidiFrame::GetDivision()
 {
-	return tempo;
+	return division;
 }
 
 int MidiFrame::GetCurrentID()
 {
-	return draggedObj->noteID;
+	return lastDraggedID;
 }
 
 wxRealPoint MidiFrame::GetCoords()

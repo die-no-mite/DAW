@@ -29,11 +29,11 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 
 	wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
-	editorPanel = new MidiFrame(this, wxID_ANY, wxDefaultPosition, wxSize(800, 500));
+	editorPanel = new MidiFrame(this, wxID_ANY, wxDefaultPosition, wxSize(FromDIP(800), FromDIP(500)));
 
 	editorPanel->SetScrollRate(FromDIP(10), FromDIP(10));
 	
-	editorPanel->SetSize(FromDIP(2000), FromDIP(2000));
+	//editorPanel->SetSize(FromDIP(2000), FromDIP(2000));
 	sizer->Add(piano, 0, wxEXPAND | wxALL, 5);
 	sizer->Add(editorPanel, 2, wxEXPAND | wxALL, 5);
 
@@ -53,22 +53,47 @@ EditorFrame::EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title,
 	editorPanel->Bind(FINISH_UPDATE_NOTE, &EditorFrame::FinishUpdateNote, this);
 	editorPanel->Bind(REMOVED_NOTE, &EditorFrame::OnRemoveNote, this);
 	editorPanel->Bind(RELATIVE_POSITION, &EditorFrame::OnRelativePostitionEvent, this);
+	editorPanel->Bind(wxEVT_KEY_DOWN, &EditorFrame::ButtonPress, this);
 	
-	editorPanel->SetTempo(midi->m_nBPM);
+	editorPanel->SetDivision(midi->nDivision);
 	editorPanel->FlipGridFlag();
 
 	DrawMIDIEvents(trackNumber);	
 	seq->convert_to_beats();
 }
 
+void EditorFrame::ButtonPress(wxKeyEvent& event)
+{
+	if (event.GetKeyCode() == WXK_LEFT)
+	{
+		editorPanel->ShiftNotes('l', GetGridStepX(), GetGridStepY());
+		relativePositionFlag = true;
+	}
+	else if (event.GetKeyCode() == WXK_RIGHT)
+	{
+		editorPanel->ShiftNotes('r', GetGridStepX(), GetGridStepY());
+		relativePositionFlag = true;
+	}
+	else if (event.GetKeyCode() == WXK_UP)
+	{
+		editorPanel->ShiftNotes('u', GetGridStepX(), GetGridStepY());
+		relativePositionFlag = true;
+	}
+	else if (event.GetKeyCode() == WXK_DOWN)
+	{
+		editorPanel->ShiftNotes('d', GetGridStepX(), GetGridStepY());
+		relativePositionFlag = true;
+	}
+}
+
 int EditorFrame::GetGridStepX() const
 {
-	return std::max(1, (editorPanel->GetTempo() + var) / 8);
+	return std::max(1, (midi->nDivision / 20));
 }
 
 int EditorFrame::GetGridStepY() const
 {
-	return 20;
+	return 17;
 }
 
 int EditorFrame::SnapValue(int rawValue, int origin, int step) const
@@ -138,7 +163,8 @@ void EditorFrame::OnDoubleClick(wxMouseEvent& evt)
 	const int snappedY = SnapY(position.y);
 
 	editorPanel->addNote(FromDIP(10), 17, snappedX, snappedY, wxColor(255, 255, 255), giveID);
-	LogNote(static_cast<float>(snappedX), static_cast<float>(snappedY), static_cast<float>(FromDIP(10)));
+	
+	LogNote(static_cast<float>(editorPanel->GetShiftedCoords().x), static_cast<float>(editorPanel->GetShiftedCoords().y), static_cast<float>(FromDIP(10)));
 }
 
 void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
@@ -205,11 +231,16 @@ void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 
 	if (!editorPanel->shouldExtend)
 	{
-		const int rawX = static_cast<int>(editorPanel->GetCoords().x) - relativePosition;
+		const int rawX = static_cast<int>(editorPanel->GetShiftedCoords().x) - relativePosition;
 		const int rawY = static_cast<int>(editorPanel->GetCoords().y);
+
+
 
 		newX = static_cast<float>(SnapX(rawX));
 		newY = static_cast<float>(SnapY(rawY));
+
+		file << "x " << newX << std::endl;
+
 		notesStored[targetIndex].x = newX;
 		notesStored[targetIndex].y = newY;
 		newDuration = notesStored[targetIndex].length;
@@ -242,6 +273,7 @@ void EditorFrame::FinishUpdateNote(wxCommandEvent& evt)
 	*/
 
 	constexpr int noteHeight = 17;
+	
 	editorPanel->removeTopNote();
 	editorPanel->addNote(static_cast<int>(newDuration), noteHeight, static_cast<int>(newX), static_cast<int>(newY),
 		wxColor(255, 255, 255), notesStored[targetIndex].noteID);
@@ -268,8 +300,13 @@ void EditorFrame::OnRelativePostitionEvent(wxCommandEvent& evt)
 	}
 	relativePosition = xCoord - notesStored[targetIndex].x;
 	*/
+	double xCoord;
+	if (relativePositionFlag)
+		xCoord = editorPanel->GetShiftedCoords().x;
+	else
+		xCoord = editorPanel->GetShiftedCoords().x;
 
-	const auto xCoord = editorPanel->GetCoords().x;
+	relativePositionFlag = false;
 	const int currentID = editorPanel->GetCurrentID();
 	targetIndex = 0;
 
@@ -359,7 +396,6 @@ void EditorFrame::DrawMIDIEvents(int trackNumber)
 
 			const int realX = SnapX(rawX);
 			const int realY = SnapY(rawY);
-
 			LogNote(static_cast<float>(realX), static_cast<float>(realY), static_cast<float>(realDuration));
 			editorPanel->addNote(realDuration, noteHeight, realX, realY, wxColor(255, 255, 255),
 				notesStored.back().noteID);
@@ -417,51 +453,36 @@ void EditorFrame::LogMidiData()
 	int beatOffset = 0;
 	float newBeat;
 	auto algtrack = seq->track(trackNumber+3);
-	algtrack->convert_to_beats();
+	seq->convert_to_beats();
 
 	int index = 0;
-	// an attempt to save the non-note events and add them back after clearing the track, doesnt work atm
-	/*
-	while (!(*seq->track(trackNumber + 3))[index]->is_note())
-	{
-		file << "test" << std::endl;
-		metaEvents.push_back((*seq->track(trackNumber + 3))[index]);
-		index++;
-	}
-	*/
-	algtrack->clear(0, algtrack->last_note_off + 10, true);
-	/*
-	for (int i = 0; i < metaEvents.size(); i++)
-	{
-		seq->add_event(metaEvents[i], trackNumber + 3);
-	}
-	*/
+	
+	seq->clear_track(trackNumber + 3, 0.1, algtrack->last_note_off + 10, true);
+	
 	float microPerBeat = float(timePerBeat) / float(midi->nDivision);
 
 	for (auto& note : notesStored)
 	{
 		MidiNote noteToAdd;
-		noteToAdd.nStartTime = (note.x * 10 + -170) - 80; // -170 is the trackoffset, *10 is the time per column
+		noteToAdd.nStartTime = (note.x * 10 + -170); // -170 is the trackoffset, *10 is the time per column
 		noteToAdd.nDuration = note.length * 10;
 		noteToAdd.nKey = -((note.y - noteRange * 17 - minNote * 17) / 17);
 		noteVector.push_back(noteToAdd);
 		int realKey = noteToAdd.nKey;
-		int realStart = noteToAdd.nStartTime / 1400; 
 		
-		file << "start time: " << noteToAdd.nStartTime;
 		
 		if (noteToAdd.nStartTime != 0)
-			newBeat =  float(noteToAdd.nStartTime * microPerBeat * 4) / float(timePerMeasure);
+			newBeat =  float(float(noteToAdd.nStartTime) * microPerBeat)/ float(timePerMeasure) * 4;
 		else
 			newBeat = 0;
-		file << " new beat: " << newBeat << std::endl;
 		
 
-		
-		auto algNote = algtrack->create_note(newBeat, 0, noteToAdd.nKey, noteToAdd.nKey, 127, double(noteToAdd.nDuration)/500.0);
+		algtrack->convert_to_beats();
+		auto algNote = algtrack->create_note(newBeat, 0, noteToAdd.nKey, noteToAdd.nKey, 127, double(noteToAdd.nDuration)/midi->nDivision);
 		
 		algtrack->add(algNote);
 	}
+	file.close();
 	midi->vecTracks[trackNumber].vecNotes = noteVector;
 	
 }

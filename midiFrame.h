@@ -30,10 +30,10 @@ public:
 	int getObjectCount() { return noteList.size(); }
 
 	void FlipGridFlag();
-	void SetTempo(int newtempo);
+	void SetDivision(int newdivision);
 	int GetCurrentID();
 	wxRealPoint GetCoords();
-	int GetTempo();
+	int GetDivision();
 	void sendUpdateTrack();
 	void sendNoteAddedEvent();
 
@@ -42,7 +42,8 @@ public:
 	bool HasGridAnchor() const;
 	int GetGridAnchorX() const;
 	int GetGridAnchorY() const;
-
+	void ShiftNotes(char direction, int stepx, int stepy);
+	wxRealPoint GetShiftedCoords();
 
 	bool shouldExtend;
 
@@ -62,9 +63,10 @@ private:
 	void sendUpdateNoteEvent();
 	void finishUpdateNoteEvent();
 	void sendRelativePositionEvent();
+	void setShiftedCoords(double x, double y);
 
 
-	int tempo = 0;
+	int division = 0;
 
 	std::list<GraphicMIDIEvent> noteList;
 	
@@ -78,6 +80,11 @@ private:
 	bool hasGridAnchor = false;
 	int gridAnchorX = 0;
 	int gridAnchorY = 0;
+	int xShift = 0;
+	int yShift = 0;
+	int xStep = 0;
+	int yStep = 0;
+	wxRealPoint shiftedCoords;
 
 	wxPoint2DDouble lastDragOrigin;
 	int lastDraggedID = -1;

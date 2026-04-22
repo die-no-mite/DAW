@@ -31,6 +31,7 @@ private:
 	void OnUpdateNote(wxCommandEvent& evt);
 	void FinishUpdateNote(wxCommandEvent& evt);
 	void OnRemoveNote(wxCommandEvent& evt);
+	void ButtonPress(wxKeyEvent& event);
 	void sendUpdateTrack();
 
 	void OnClose(wxCloseEvent& evt);
@@ -57,6 +58,7 @@ private:
 	int newX, newY, newDuration;
 	int targetIndex = 0;
 	float relativePosition;
+	bool relativePositionFlag;
 
 	void LogNote(float xcoord, float ycoord, float len);
 

@@ -8,6 +8,7 @@
 #include "midicode.h"
 #include "seq2midi.h"
 #include <thread>
+#include <memory>
 
 using namespace std;
 
@@ -16,7 +17,6 @@ using namespace std;
 
 MidiPlayer::MidiPlayer()
 {
-
 }
 
 double time_elapsed()
@@ -25,23 +25,28 @@ double time_elapsed()
 }
 
 
-void wait_until(double time)
+bool wait_until(double time, std::stop_token st)
 {
-    // print "." to stdout while waiting
     static double last_time = 0.0;
     double now = time_elapsed();
     if (now < last_time) last_time = now;
+
     while (now < time) {
+        if (st.stop_requested())
+            return false;
+
         Pt_Sleep(1);
         now = time_elapsed();
-        long now_sec = (long) now;
-        long last_sec = (long) last_time;
+
+        long now_sec = (long)now;
+        long last_sec = (long)last_time;
         if (now_sec > last_sec) {
             fprintf(stdout, ".");
             fflush(stdout);
             last_time = now;
         }
     }
+    return true;
 }
 
 
@@ -120,7 +125,7 @@ void send_midi_update(Alg_update_ptr u, PortMidiStream *midi)
 }
 
 
-void MidiPlayer::seq2midi(Alg_seq &seq, PortMidiStream *midi)
+void MidiPlayer::seq2midi(Alg_seq& seq, PortMidiStream* midi, std::stop_token st)
 {
     // prepare by doing lookup of important symbols
     pressure_attr = symbol_table.insert_string("pressurer") + 1;
@@ -135,24 +140,29 @@ void MidiPlayer::seq2midi(Alg_seq &seq, PortMidiStream *midi)
     isThreadActive = true;
     
     
-        while (e) {
-        double next_time = (note_on ? e->time : e->get_end_time());
-        wait_until(next_time);
-        if (e->is_note() && note_on) { // process notes here
-            // printf("Note at %g: chan %d key %d loud %d\n",
-            //        next_time, e->chan, e->key, (int) e->loud);
-            midi_note_on(midi, next_time, e->chan, e->get_identifier(),
-                (int)e->get_loud());
-        }
-        else if (e->is_note()) { // must be a note off
-            midi_note_on(midi, next_time, e->chan, e->get_identifier(), 0);
-        }
-        else if (e->is_update()) { // process updates here
-            Alg_update_ptr u = (Alg_update_ptr)e; // coerce to proper type
-            send_midi_update(u, midi);
-        }
-        // add next note
-        e = iterator.next(&note_on);
+        while (e && !st.stop_requested() && isThreadActive) {
+            double next_time = (note_on ? e->time : e->get_end_time());
+
+            if (!wait_until(next_time, st))
+                break;
+
+            if (st.stop_requested() || !isThreadActive)
+                break;
+            if (e->is_note() && note_on) { // process notes here
+                // printf("Note at %g: chan %d key %d loud %d\n",
+                //        next_time, e->chan, e->key, (int) e->loud);
+                midi_note_on(midi, next_time, e->chan, e->get_identifier(),
+                    (int)e->get_loud());
+            }
+            else if (e->is_note()) { // must be a note off
+                midi_note_on(midi, next_time, e->chan, e->get_identifier(), 0);
+            }
+            else if (e->is_update()) { // process updates here
+                Alg_update_ptr u = (Alg_update_ptr)e; // coerce to proper type
+                send_midi_update(u, midi);
+            }
+            // add next note
+            e = iterator.next(&note_on);
         }
     
     
@@ -160,33 +170,52 @@ void MidiPlayer::seq2midi(Alg_seq &seq, PortMidiStream *midi)
 }
 
 
-void MidiPlayer::seq_play(Alg_seq &seq)
+void MidiPlayer::seq_play(Alg_seq_ptr seq)
 {
-    
-    
+    if (!seq) return;
+
+    pauseMidi(); // stop current playback first
+
+    currentSeq = seq;
+
     Pm_Initialize();
     PmDeviceID dev = Pm_GetDefaultOutputDeviceID();
-    // note that the Pt_Time type cast is required because Pt_Time does 
-    // not take an input parameter, whereas for generality, PortMidi
-    // passes in a void * so the time function can get some context.
-    // It is safe to call Pt_Time with a parameter -- it will just be ignored.
-    if (Pm_OpenOutput(&mo, dev, NULL, 256, 
-                      (PmTimestamp (*)(void *))&Pt_Time, NULL, 100) == pmNoError) {
-        const auto thread = [&]() {
-            seq2midi(seq, mo);
-            };
-        this->mainThread = std::jthread{ thread };
-        mainThread.detach();
-    }
-    
-    return;
-}
 
+    if (Pm_OpenOutput(&mo, dev, NULL, 256,
+        (PmTimestamp(*)(void*)) & Pt_Time, NULL, 100) != pmNoError) {
+        currentSeq = nullptr;
+        mo = nullptr;
+        Pm_Terminate();
+        return;
+    }
+
+    mainThread = std::jthread([this](std::stop_token st) {
+        if (currentSeq && mo) {
+            seq2midi(*currentSeq, mo, st);
+        }
+        });
+}
 void MidiPlayer::pauseMidi()
 {
-    isThreadActive = false;
-    this->mainThread.request_stop();
-    wait_until(time_elapsed() + 1);
-    Pm_Close(mo);
+    if (mainThread.joinable()) {
+        mainThread.request_stop();
+        mainThread.join();
+    }
+
+    if (mo) {
+        for (int chan = 0; chan < 16; ++chan) {
+            Pm_WriteShort(mo, 0, Pm_Message(MIDI_CTRL + chan, 64, 0));
+            Pm_WriteShort(mo, 0, Pm_Message(MIDI_CTRL + chan, 123, 0));
+            Pm_WriteShort(mo, 0, Pm_Message(MIDI_CTRL + chan, 120, 0));
+        }
+
+        Pm_Close(mo);
+        mo = nullptr;
+    }
+
+    Pt_Stop();
     Pm_Terminate();
+
+    currentSeq = nullptr;
 }
+

@@ -16,6 +16,7 @@
 #include "TrackManager.h"
 #include "editorFrame.h"
 #include "trackUpdateEvent.h"
+#include "helpDialog.h"
 
 #include "allegro.h"
 #include "portmidi.h"
@@ -63,13 +64,7 @@ public:
 	float ScaleYCoord(float y, float min, float max);
 	int maxX = 0;
 	void UpdateMidiTrack(int trackNumber);
-/*
-protected:
-	MyThread* m_pThread;
-	wxCriticalSection m_pThreadCS;    // protects the m_pThread pointer
 
-	friend class MyThread;
-*/
 
 private:
 	
@@ -86,13 +81,13 @@ private:
 	wxSplitterWindow* ResetSplitter();
 
 	Alg_seq_ptr seq;
-	Alg_seq seq2play;
 	MidiPlayer *midiPlayer = new MidiPlayer;
 
 	void BuildMenuBar();
 	void OnOpen(wxCommandEvent& event);
 	void OnSaveAs(wxCommandEvent& event);
 	void OnSave(wxCommandEvent& event);
+	void OnHelp(wxCommandEvent& event);
 	wxTextCtrl* m_textCtrl;
 
 	void OnDoubleClick(wxMouseEvent& event);
@@ -119,6 +114,7 @@ private:
 	bool isPlaying = false;
 
 	int playButtonID;
+	wxButton* playButton;
 
 	std::string pathName = "";
 
@@ -155,10 +151,10 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent, int trackNumber)
 
 	auto mainSizer = new wxBoxSizer(wxVERTICAL);
 
-	wxButton* playButton = new wxButton(trackInfoPanel, wxID_ANY, "Play");
+	playButton = new wxButton(trackInfoPanel, wxID_ANY, "Play");
 	playButtonID = playButton->GetId();
 	mainSizer->Add(playButton, 0, wxTOP | wxALL);
-	
+
 
 	trackInfoPanel->SetSizerAndFit(mainSizer);
 
@@ -184,22 +180,24 @@ void MyFrame::BuildMenuBar()
 
 	menuBar->Append(fileMenu, "&File");
 
-	auto editMenu = new wxMenu;
-	editMenu->Append(wxID_UNDO);
-	editMenu->Append(wxID_REDO);
-	editMenu->AppendSeparator();
-	editMenu->Append(wxID_CUT);
-	editMenu->Append(wxID_COPY);
-	editMenu->Append(wxID_PASTE);
-	editMenu->Append(wxID_DELETE);
-	editMenu->AppendSeparator();
-	editMenu->Append(wxID_SELECTALL);
+	auto helpMenu = new wxMenu;
+	helpMenu->Append(wxID_HELP);
+	Bind(wxEVT_MENU, &MyFrame::OnHelp, this, wxID_HELP);
 
-	menuBar->Append(editMenu, "&Edit");
+	menuBar->Append(helpMenu, "&Help");
 
 	
 
 	SetMenuBar(menuBar);
+}
+
+void MyFrame::OnHelp(wxCommandEvent& event)
+{
+	
+	auto helpDialog = new HelpDialog(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(500), FromDIP(250)), wxDEFAULT_DIALOG_STYLE, "Editor");
+	helpDialog->ShowModal();
+	
+	
 }
 
 void MyFrame::OnOpen(wxCommandEvent& event)
@@ -234,9 +232,11 @@ void MyFrame::OnOpen(wxCommandEvent& event)
 		seq = new Alg_seq(ifile, true);
 		midi->ParseFile(fileLocation);
 		ifile.close();
-		//fileReady = fileLocation;
 
-		
+
+		std::ofstream file;
+		file.open("output.txt");
+		//seq->write(file, false);
 
 		//removes any empty tracks
 		midi->vecTracks.erase(std::remove_if(midi->vecTracks.begin(), midi->vecTracks.end(),
@@ -271,7 +271,7 @@ void MyFrame::OnSaveAs(wxCommandEvent& event)
 		auto realFilePath = (const_cast<char*>((const char*)filePath.mb_str()));
 
 		//writes to the file
-		seq->smf_write(realFilePath);
+		seq->smf_write(realFilePath, midi->nDivision);
 		pathName = realFilePath;
 
 		trackList->DetroyList();
@@ -307,7 +307,7 @@ void MyFrame::OnSave(wxCommandEvent& event)
 		auto realFilePath = (const_cast<char*>((const char*)filePath.mb_str()));
 
 
-		seq->smf_write(realFilePath);
+		seq->smf_write(realFilePath, midi->nDivision);
 
 		SetStatusText("Saved: " + filePath);
 	}
@@ -364,6 +364,9 @@ MidiFrame* MyFrame::BuildTrackPanel(wxWindow* parent, int trackNumber)
 		//fills vector with midiframes per track and adds them to the sizer
 		for (int i = 0; i < trackNumber; i++)
 		{
+			text = new wxStaticText(trackPanel, wxID_ANY, midi->vecTracks[i].sName);
+			text->SetForegroundColour(wxColor(255, 255, 255));
+			trackSizer->Add(text, 0, wxTOP | wxALL);
 			trackList->setIndex(i);
 			trackList->addTrack(new TrackFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(1000, 100)));
 			trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
@@ -554,22 +557,16 @@ void MyFrame::PlayMIDIFile(wxCommandEvent& event)
 {
 	if (!isPlaying)
 	{
-		const auto dawThread = [this]() {
-			seq2play = seq;
-			midiPlayer->seq_play(seq2play);
-		};
-		audioThread = std::jthread{ dawThread };
-		audioThread.detach();
+		playButton->SetLabel("Stop");
+		midiPlayer->seq_play(seq);
+		isPlaying = true;
 	}
 	else
 	{
-
+		playButton->SetLabel("Play");
 		midiPlayer->pauseMidi();
 		isPlaying = false;
-		
 	}
-	
-	//event.Skip();
 }
 
 
@@ -636,31 +633,34 @@ float MyFrame::ScaleYCoord(float y, float min, float max)
 //double click to open a track in the editor
 void MyFrame::OnDoubleClick(wxMouseEvent& evt)
 {
-	evt.Skip();
-	for (int i = 0; i < trackIDs.size(); i++)
+	if (!isPlaying)
 	{
-		if (evt.GetId() == trackIDs[i]) // determines which track was opened and stores its index in the midi object
+		evt.Skip();
+		for (int i = 0; i < trackIDs.size(); i++)
 		{
-			midi->currentTrack = i;
+			if (evt.GetId() == trackIDs[i]) // determines which track was opened and stores its index in the midi object
+			{
+				midi->currentTrack = i;
+			}
 		}
-	}
 
 
-	editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi, seq);
+		editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi, seq);
 
-	editorWindow->Bind(EVT_UPDATE_TRACK, [&](TrackUpdateEvent& event) {
-		int trackToUpdate = event.GetTrackNumber();
-		UpdateMidiTrack(trackToUpdate);
-		event.Skip();
-		});
-	editorWindow->ShowModal();
-	/*
-	std::ofstream file;
-	file.open("output.txt");
-	seq->write(file, false);
-	file.close();
-	*/
+		editorWindow->Bind(EVT_UPDATE_TRACK, [&](TrackUpdateEvent& event) {
+			int trackToUpdate = event.GetTrackNumber();
+			UpdateMidiTrack(trackToUpdate);
+			event.Skip();
+			});
+		editorWindow->ShowModal();
+
+
+		std::ofstream file;
+		file.open("output.txt");
+		seq->write(file, false);
+		file.close();
 	
+	}
 	
 }
 

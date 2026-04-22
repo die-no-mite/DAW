@@ -1076,8 +1076,8 @@ public:
     void write(std::ostream &file, bool in_secs, double offset = 0.0);
     // returns true on success
     bool write(const char *filename, double offset = 0.0);
-    void smf_write(std::ostream &file);
-    bool smf_write(const char *filename);
+    void smf_write(std::ostream &file, int division);
+    bool smf_write(const char *filename, int division);
 
     // Returns the number of tracks
     int tracks();

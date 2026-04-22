@@ -35,6 +35,8 @@ public:
     // default is 100, set this to 0 to merge all tracks to 16 channels
 
     void write(ostream &file /* , midiFileFormat = 1 */);
+    void setDivision(int newdiv);
+
 
 private:
     int64 previous_divs; // time in ticks of most recently written event
@@ -631,18 +633,24 @@ void Alg_smf_write::write_varinum(int value)
   }
 }
 
+void Alg_smf_write::setDivision(int newdiv)
+{
+    division = newdiv;
+}
 
-void Alg_seq::smf_write(ostream &file)
+
+void Alg_seq::smf_write(ostream &file, int realdivision)
 {
     Alg_smf_write writer(this);
+    writer.setDivision(realdivision);
     writer.write(file);
 }
 
-bool Alg_seq::smf_write(const char *filename)
+bool Alg_seq::smf_write(const char *filename, int realdivision)
 {
     ofstream outf(filename, ios::binary | ios::out);
     if (outf.fail()) return false;
-    smf_write(outf);
+    smf_write(outf, realdivision);
     outf.close();
     return true;
 }
