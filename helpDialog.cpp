@@ -63,7 +63,7 @@ void HelpDialog::OnButtonPress(wxCommandEvent& event)
 		
 		break;
 	case 10:
-		text->SetLabel("While the main window is open, clicking on the \"Play\" button will start playing the MIDI file. (Note: Tracks can't be opened for editing while the MIDI file is playing)");
+		text->SetLabel("While the main window is open, clicking on the \"Play\" button will start playing the MIDI file. (Note: Tracks can't be opened for editing and \"File\" menu items will be disabled while the MIDI file is playing.)");
 		
 		break;
 	case 11:
@@ -75,11 +75,19 @@ void HelpDialog::OnButtonPress(wxCommandEvent& event)
 		
 		break;
 	case 13:
-		text->SetLabel("And that's everything! You're now ready to write music!");
-		
-		nextButton->SetLabel("Close");
+		text->SetLabel("To create a file from scratch, click on \"File\", then \"New\".");
 		break;
 	case 14:
+		text->SetLabel("You'll then enter the desired tempo, then select the instrument, then enter the time signature.");
+		break;
+	case 15:
+		text->SetLabel("After that, enter the name of the file in the file manager window, and click \"Open\" once you've decided where it should be created.");
+		break;
+	case 16:
+		text->SetLabel("And that's everything! You're now ready to write music!");
+		nextButton->SetLabel("Close");
+		break;
+	case 17:
 		this->Close();
 	}
 	text->Wrap(windowSize);

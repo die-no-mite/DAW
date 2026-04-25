@@ -352,6 +352,8 @@
 						track.vecNotes.push_back(*note);
 						track.nMinNote = std::min(track.nMinNote, note->nKey);
 						track.nMaxNote = std::max(track.nMaxNote, note->nKey);
+						//track.nMinNote = 0;
+						//track.nMaxNote = 127;
 						listNotesBeingProcessed.erase(note);
 					}
 				}

@@ -64,6 +64,7 @@ class MidiFile {
         uint16_t nDivision = 0;
 
         int currentTrack = 0;
+        int trackIndexOffset;
         int timeSigDen, timeSigNum;
         int n32PerBeat;
         

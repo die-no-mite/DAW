@@ -16,7 +16,9 @@ public:
 	EditorFrame(wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos, const wxSize& size, long style, const wxString& name, MidiFile* midi, Alg_seq_ptr algseq);
 
 	MidiFrame* editorPanel;
-	
+	wxPanel* piano;
+
+	wxPoint GetNewMinMax();
 
 private:
 	int GetGridStepX() const;
@@ -32,14 +34,17 @@ private:
 	void FinishUpdateNote(wxCommandEvent& evt);
 	void OnRemoveNote(wxCommandEvent& evt);
 	void ButtonPress(wxKeyEvent& event);
+	void OnPaint(wxPaintEvent& event);
 	void sendUpdateTrack();
 
 	void OnClose(wxCloseEvent& evt);
 	void OnRelativePostitionEvent(wxCommandEvent& evt);
 
 	void DrawMIDIEvents(int trackNumber);
+	void DrawNoteLabels(int trackNumber, int key);
+	void GetNoteName(int key);
+	void CheckNewHighestLowest(int y);
 
-	wxStaticBitmap* pianoImage;
 
 	MidiFile* midi;
 
@@ -47,11 +52,9 @@ private:
 
 	std::string ResolveImagePath(std::string sImagePath) const;
 
-	const wxImage image;
 
 	int trackNumber;
 	std::ofstream file;
-	int var = 25;
 
 	Alg_seq_ptr seq;
 
@@ -59,6 +62,23 @@ private:
 	int targetIndex = 0;
 	float relativePosition;
 	bool relativePositionFlag;
+	bool noteLabelsDrawn = false;
+	wxString firstNoteLabel;
+	int firstNoteY;
+	std::string noteName;
+	int octave;
+	int noteNumber;
+	int firstOctave;
+	int firstNoteNumber;
+
+	int highestY = 0;
+	int lowestY = 10000;
+	int distanceToCeiling;
+	int distanceToFloor;
+	int newMin, newMax;
+
+	bool ceilingReached = false;
+	bool floorReached = false;
 
 	void LogNote(float xcoord, float ycoord, float len);
 

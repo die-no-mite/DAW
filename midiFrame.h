@@ -3,6 +3,7 @@
 #include <wx/wx.h>
 
 #include <list>
+#include <fstream>
 
 #include "graphicMIDIevent.h"
 
@@ -14,79 +15,82 @@ wxDECLARE_EVENT(REMOVED_NOTE, wxCommandEvent);
 wxDECLARE_EVENT(RELATIVE_POSITION, wxCommandEvent);
 wxDECLARE_EVENT(SCALE_EVENT, wxCommandEvent);
 
-
-
 class MidiFrame : public wxScrolled<wxPanel>
 {
 public:
-	MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);
-	
-	virtual ~MidiFrame(){}
+    MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size);
 
-	void addNote(int width, int height, int centerX, int centerY, wxColor color);
-	void addNote(int width, int height, int centerX, int centerY, wxColor color, int ID);
-	void removeTopNote();
+    virtual ~MidiFrame() {}
 
-	int getObjectCount() { return noteList.size(); }
+    void addNote(int width, int height, int centerX, int centerY, wxColor color);
+    void addNote(int width, int height, int centerX, int centerY, wxColor color, int ID);
 
-	void FlipGridFlag();
-	void SetDivision(int newdivision);
-	int GetCurrentID();
-	wxRealPoint GetCoords();
-	int GetDivision();
-	void sendUpdateTrack();
-	void sendNoteAddedEvent();
+    void removeTopNote();
+    void removeNoteByID(int ID);
 
-	void SetGridAnchor(int x, int y);
-	void ClearGridAnchor();
-	bool HasGridAnchor() const;
-	int GetGridAnchorX() const;
-	int GetGridAnchorY() const;
-	void ShiftNotes(char direction, int stepx, int stepy);
-	wxRealPoint GetShiftedCoords();
+    int getObjectCount() { return noteList.size(); }
 
-	bool shouldExtend;
+    void FlipGridFlag();
+    void SetDivision(int newdivision);
+    int GetCurrentID();
+    wxRealPoint GetCoords();
+    int GetDivision();
+    void sendUpdateTrack();
+    void sendNoteAddedEvent();
+
+    void SetGridAnchor(int x, int y);
+    void ClearGridAnchor();
+    bool HasGridAnchor() const;
+    int GetGridAnchorX() const;
+    int GetGridAnchorY() const;
+    void ShiftNotes(char direction, int stepx, int stepy);
+    wxRealPoint GetShiftedCoords();
+    int GetShiftY();
+    int GetShiftX();
+
+    bool shouldExtend;
 
 private:
-	
-	void OnPaint(wxPaintEvent& evt);
-	void OnMouseDown(wxMouseEvent& event);
-	void OnMouseMove(wxMouseEvent& event);
-	void OnMouseUp(wxMouseEvent& event);
-	void OnMouseLeave(wxMouseEvent& event);
-	void OnMouseEvent(wxMouseEvent& event);
+    void OnPaint(wxPaintEvent& evt);
+    void OnMouseDown(wxMouseEvent& event);
+    void OnMouseMove(wxMouseEvent& event);
+    void OnMouseUp(wxMouseEvent& event);
+    void OnMouseLeave(wxMouseEvent& event);
+    void OnMouseEvent(wxMouseEvent& event);
 
-	void finishDrag();
-	void finishExtend();
+    wxPoint GetWorldMousePosition(const wxMouseEvent& event) const;
+    void finishDrag();
+    void finishExtend();
 
-	void sendNoteRemovedEvent(int ID);
-	void sendUpdateNoteEvent();
-	void finishUpdateNoteEvent();
-	void sendRelativePositionEvent();
-	void setShiftedCoords(double x, double y);
+    void sendNoteRemovedEvent(int ID);
+    void sendUpdateNoteEvent();
+    void finishUpdateNoteEvent();
+    void sendRelativePositionEvent();
+    void setShiftedCoords(double x, double y);
 
+    void EnsureVirtualBoundsForNote(int x, int y, int width, int height);
 
-	int division = 0;
+    int division = 0;
 
-	std::list<GraphicMIDIEvent> noteList;
-	
-	GraphicMIDIEvent *draggedObj;
+    std::list<GraphicMIDIEvent> noteList;
+    std::ofstream file;
 
-	bool selected;
-	bool gridFlag = false;
-	bool gridSnap = false;
-	bool shouldMove;
+    GraphicMIDIEvent* draggedObj;
 
-	bool hasGridAnchor = false;
-	int gridAnchorX = 0;
-	int gridAnchorY = 0;
-	int xShift = 0;
-	int yShift = 0;
-	int xStep = 0;
-	int yStep = 0;
-	wxRealPoint shiftedCoords;
+    bool selected;
+    bool gridFlag = false;
+    bool gridSnap = false;
+    bool shouldMove = false;
 
-	wxPoint2DDouble lastDragOrigin;
-	int lastDraggedID = -1;
-	
+    bool hasGridAnchor = false;
+    int gridAnchorX = 0;
+    int gridAnchorY = 0;
+    int xShift = 0;
+    int yShift = 0;
+    int xStep = 0;
+    int yStep = 0;
+    wxRealPoint shiftedCoords;
+
+    wxPoint2DDouble lastDragOrigin;
+    int lastDraggedID = -1;
 };

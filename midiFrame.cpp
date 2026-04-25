@@ -3,7 +3,9 @@
 
 #include <wx/graphics.h>
 #include <wx/dcbuffer.h>
+
 #include <fstream>
+#include <algorithm>
 
 
 wxDEFINE_EVENT(CANVAS_RECT_ADDED, wxCommandEvent);
@@ -31,6 +33,7 @@ MidiFrame::MidiFrame(wxWindow* parent, wxWindowID id, const wxPoint& pos, const 
 	this->shouldExtend = false;
 
 	this->selected = false;
+	file.open("output.txt");
 }
 
 
@@ -57,14 +60,14 @@ void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor
 void MidiFrame::addNote(int width, int height, int centerX, int centerY, wxColor color, int ID)
 {
 	GraphicMIDIEvent obj{
-		{static_cast<double>(centerX - (xShift * xStep)),
-		static_cast<double>(centerY - (yShift * yStep)),
+		{static_cast<double>(centerX),
+		static_cast<double>(centerY),
 		static_cast<double>(width),
 		static_cast<double>(height)},
 		color, ID,
 		{}
 	};
-	//obj.transform.Translate(static_cast<double>(centerX), static_cast<double>(centerY));
+
 	setShiftedCoords(obj.note.m_x, obj.note.m_y);
 
 	this->noteList.push_back(obj);
@@ -84,6 +87,16 @@ wxRealPoint MidiFrame::GetShiftedCoords()
 	return shiftedCoords;
 }
 
+int MidiFrame::GetShiftY()
+{
+	return (yShift * yStep);
+}
+
+int MidiFrame::GetShiftX()
+{
+	return (xShift * xStep);
+}
+
 void MidiFrame::removeTopNote()
 {
 	if (!this->noteList.empty() && draggedObj == nullptr)
@@ -91,6 +104,24 @@ void MidiFrame::removeTopNote()
 			
 		this->noteList.pop_back();
 		
+		Refresh();
+	}
+}
+
+void MidiFrame::removeNoteByID(int ID)
+{
+	auto it = std::find_if(noteList.begin(), noteList.end(),
+		[ID](const GraphicMIDIEvent& obj)
+		{
+			return obj.noteID == ID;
+		});
+
+	if (it != noteList.end())
+	{
+		if (draggedObj == &(*it))
+			draggedObj = nullptr;
+
+		noteList.erase(it);
 		Refresh();
 	}
 }
@@ -105,50 +136,17 @@ void MidiFrame::OnMouseEvent(wxMouseEvent &evt)
 	removeTopNote();
 }
 
+wxPoint MidiFrame::GetWorldMousePosition(const wxMouseEvent& event) const
+{
+	int worldX = 0;
+	int worldY = 0;
+	const_cast<MidiFrame*>(this)->CalcUnscrolledPosition(event.GetX(), event.GetY(), &worldX, &worldY);
+	return wxPoint(worldX, worldY);
+}
+
 void MidiFrame::OnPaint(wxPaintEvent& evt)
 {
-	/*
-	wxAutoBufferedPaintDC dc(this);
-	dc.Clear();
-
-	wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
-
-	if (gc)
-	{
-		if (gridFlag)
-		{
-			if (tempo != 0)
-			{ 
-				gc->SetBrush(wxBrush(wxColor(0, 0, 0)));
-				for (int i = 24; i < 10000; i += ((tempo+25)/8))
-				{
-					
-					gc->DrawRectangle(i, 0, 1, 600);
-					
-				}
-				for (int i = -12; i < 10000; i += 20)
-				{
-					
-					gc->DrawRectangle(0, i - 170, 1200, 1);
-				}
-			}
-			
-		}
-		for (const auto& object : noteList) 
-		{
-			
-			gc->SetTransform(gc->CreateMatrix(object.transform));
-			
-			gc->SetBrush(wxBrush(object.color));
-			
-			gc->DrawRectangle(object.note.m_x, object.note.m_y, object.note.m_width, object.note.m_height);
-			
-		}
-		
-		
-	}
-	delete gc;
-	*/
+	
 	wxAutoBufferedPaintDC dc(this);
 	PrepareDC(dc);
 	dc.Clear();
@@ -225,9 +223,12 @@ void MidiFrame::ShiftNotes(char direction, int stepx, int stepy)
 void MidiFrame::OnMouseDown(wxMouseEvent& event)
 {
 	event.Skip();
-	auto clickedObjectIter = std::find_if(noteList.rbegin(), noteList.rend(), [event, this](const GraphicMIDIEvent& o)
+
+	const wxPoint worldPos = GetWorldMousePosition(event);
+
+	auto clickedObjectIter = std::find_if(noteList.rbegin(), noteList.rend(), [worldPos, this](const GraphicMIDIEvent& o)
 		{
-			wxPoint2DDouble clickPos = event.GetPosition();
+			wxPoint2DDouble clickPos(worldPos.x, worldPos.y);
 			auto inv = o.transform;
 			inv.Invert();
 			clickPos = inv.TransformPoint(clickPos);
@@ -236,11 +237,8 @@ void MidiFrame::OnMouseDown(wxMouseEvent& event)
 			return o.note.Contains(clickPos);
 		});
 
-	
-	
 	if (clickedObjectIter != noteList.rend())
 	{
-		
 		auto forwardIt = std::prev(clickedObjectIter.base());
 
 		noteList.push_back(*forwardIt);
@@ -248,59 +246,62 @@ void MidiFrame::OnMouseDown(wxMouseEvent& event)
 
 		draggedObj = &(*std::prev(noteList.end()));
 		lastDraggedID = draggedObj->noteID;
-		
-		lastDragOrigin = event.GetPosition();
+
+		lastDragOrigin = wxPoint2DDouble(worldPos.x, worldPos.y);
 		shouldExtend = wxGetKeyState(WXK_ALT);
 
-		Refresh(); // for z order reversal
-		setShiftedCoords(lastDragOrigin.m_x - (xShift * xStep), lastDragOrigin.m_y - (yShift * yStep));
+		Refresh();
+
+		setShiftedCoords(worldPos.x - (xShift * xStep), worldPos.y - (yShift * yStep));
 		sendRelativePositionEvent();
-		if (event.GetButton() == wxMOUSE_BTN_LEFT)
-			shouldMove = true;
-		else
-			shouldMove = false;
+
+		shouldMove = (event.GetButton() == wxMOUSE_BTN_LEFT);
 	}
-	
 }
 
 void MidiFrame::OnMouseMove(wxMouseEvent& event)
 {
 	event.Skip();
-	if (shouldMove)
+
+	if (shouldMove && draggedObj != nullptr)
 	{
-		if (draggedObj != nullptr)
+		const wxPoint worldPos = GetWorldMousePosition(event);
+
+		setShiftedCoords(worldPos.x - (xShift * xStep), worldPos.y - (yShift * yStep));
+
+		if (!shouldExtend)
 		{
-		
-			if (shouldExtend == false)
-			{
-				auto dragVector = event.GetPosition() - lastDragOrigin;
+			wxPoint2DDouble dragVector(
+				static_cast<double>(worldPos.x) - lastDragOrigin.m_x,
+				static_cast<double>(worldPos.y) - lastDragOrigin.m_y);
 
-				auto inv = draggedObj->transform;
-				inv.Invert();
-				dragVector = inv.TransformDistance(dragVector);
+			auto inv = draggedObj->transform;
+			inv.Invert();
+			dragVector = inv.TransformDistance(dragVector);
 
-				draggedObj->transform.Translate(dragVector.m_x, dragVector.m_y);
-			}
-			lastDragOrigin = event.GetPosition();
-			Refresh();
-		
+			draggedObj->transform.Translate(dragVector.m_x, dragVector.m_y);
 		}
+
+		lastDragOrigin = wxPoint2DDouble(worldPos.x, worldPos.y);
+		Refresh();
 	}
-	
 }
 
 
 void MidiFrame::OnMouseUp(wxMouseEvent& event)
 {
 	event.Skip();
-	if(draggedObj != nullptr)
-	{ 
+
+	if (draggedObj != nullptr)
+	{
+		const wxPoint worldPos = GetWorldMousePosition(event);
+		setShiftedCoords(worldPos.x - (xShift * xStep), worldPos.y - (yShift * yStep));
+
 		sendUpdateNoteEvent();
 		finishDrag();
 		finishExtend();
 		finishUpdateNoteEvent();
 	}
-	
 }
 
 void MidiFrame::OnMouseLeave(wxMouseEvent& event)
