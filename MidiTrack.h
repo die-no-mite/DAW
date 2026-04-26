@@ -15,5 +15,6 @@ struct MidiTrack
     std::vector<MidiNote> vecNotes;
     uint8_t nMaxNote = 64;
     uint8_t nMinNote = 64;
+    bool isPercusion;
 };
 #endif

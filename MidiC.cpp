@@ -201,7 +201,7 @@
 					nPreviousStatus = nStatus;
 					uint8_t nChannel = nStatus & 0x0F;
 					uint8_t nProgramID = ifs.get();
-					vecTracks[nChunk].vecEvents.push_back({ MidiEvent::Type::Other });
+					vecTracks[nChunk].vecEvents.push_back({ MidiEvent::Type::Program, 0, 0, 0, nChannel, nProgramID });
 				}
 
 				else if ((nStatus & 0xF0) == EventName::VoiceChannelPressure)

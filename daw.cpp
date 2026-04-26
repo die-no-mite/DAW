@@ -23,6 +23,72 @@
 
 
 
+<<<<<<< Updated upstream
+=======
+	float ScaleYCoord(float y, float min, float max);
+	int maxX = 0;
+	void UpdateMidiTrack(int trackNumber);
+
+
+private:
+	void process(Alg_seq_ptr seq, double tempo);
+
+	wxPanel* BuildTrackInfoPanel(wxWindow* parent, int trackNumber);
+	MidiFrame* BuildTrackPanel(wxWindow* parent, int trackNumber);
+	void DrawMidiTracks();
+	void Setup();
+	void PlayMIDIFile(wxCommandEvent &event);
+
+	wxSplitterWindow* ResetSplitter();
+
+	Alg_seq_ptr seq;
+	MidiPlayer *midiPlayer = new MidiPlayer;
+
+	void BuildMenuBar();
+	void OnOpen(wxCommandEvent& event);
+	void OnSaveAs(wxCommandEvent& event);
+	void OnSave(wxCommandEvent& event);
+	void OnHelp(wxCommandEvent& event);
+	void OnNew(wxCommandEvent& event);
+	void OnQuit(wxCommandEvent& event);
+	void OnClose(wxCloseEvent& event);
+	wxTextCtrl* m_textCtrl;
+
+	void OnDoubleClick(wxMouseEvent& event);
+
+	wxPanel* trackInfoPanel;
+	EditorFrame* editorWindow;
+
+	wxSplitterWindow* splitter;
+	wxBoxSizer* mainSizer;
+
+	std::string ResolveMidiPath(std::string midiPath) const;
+
+	TrackFrame* currentTrackFrame;
+	TrackManager* trackList = new TrackManager();
+	TrackManager* trackInfoList = new TrackManager();
+
+	std::vector<int> trackIDs;
+
+	MidiFrame* canvas;
+	MidiFile* midi = new MidiFile;
+
+	bool reset = false;
+	bool isFileOpen = false;
+	bool isPlaying = false;
+	bool saved = true;
+
+	wxButton* playButton;
+	int beginingEmptyTracks;
+
+	std::string pathName = "";
+
+	const std::string lightBackground = "#f4f3f3";
+	const std::string darkBackground = "#2c2828";
+
+	void OnCanvasResize(wxSizeEvent& event);
+};
+>>>>>>> Stashed changes
 
 class MyApp : public wxApp
 {
@@ -177,6 +243,353 @@ wxPanel* MyFrame::BuildTrackInfoPanel(wxWindow* parent)
 }
 
 
+<<<<<<< Updated upstream
+=======
+void MyFrame::BuildMenuBar()
+{
+	wxMenuBar* menuBar = new wxMenuBar;
+	wxMenu* fileMenu = new wxMenu;
+
+	fileMenu->Append(wxID_NEW);
+	Bind(wxEVT_MENU, &MyFrame::OnNew, this, wxID_NEW);
+	fileMenu->Append(wxID_OPEN);
+	Bind(wxEVT_MENU, &MyFrame::OnOpen, this, wxID_OPEN);
+	fileMenu->Append(wxID_SAVE);
+	Bind(wxEVT_MENU, &MyFrame::OnSave, this, wxID_SAVE);
+	fileMenu->Append(wxID_SAVEAS);
+	Bind(wxEVT_MENU, &MyFrame::OnSaveAs, this, wxID_SAVEAS);
+	fileMenu->Append(wxID_EXIT);
+	Bind(wxEVT_MENU, &MyFrame::OnQuit, this, wxID_EXIT);
+
+	menuBar->Append(fileMenu, "&File");
+
+	auto helpMenu = new wxMenu;
+	helpMenu->Append(wxID_HELP);
+	Bind(wxEVT_MENU, &MyFrame::OnHelp, this, wxID_HELP);
+
+	menuBar->Append(helpMenu, "&Help");
+
+	
+
+	SetMenuBar(menuBar);
+}
+
+void MyFrame::OnClose(wxCloseEvent& event)
+{
+	if (event.CanVeto())
+	{
+		if (!isPlaying)
+		{
+			if (!saved)
+			{
+				auto quitSaveDialog = NewFileDialog(this, wxID_ANY, "Save?", wxDefaultPosition, wxSize(FromDIP(500), FromDIP(250)), wxDEFAULT_DIALOG_STYLE, "Save?", 3);
+				quitSaveDialog.ShowModal();
+
+				if (!quitSaveDialog.GetQuit())
+					event.Veto();
+				else
+					Destroy();
+			}
+			else
+				Destroy();
+		}
+		else
+			event.Veto();
+	}
+	else
+		Destroy();
+}
+
+void MyFrame::OnQuit(wxCommandEvent& event)
+{
+	this->Close();
+}
+
+void MyFrame::OnHelp(wxCommandEvent& event)
+{
+	auto helpDialog = new HelpDialog(this, wxID_ANY, "Tutorial", wxDefaultPosition, wxSize(FromDIP(500), FromDIP(250)), wxDEFAULT_DIALOG_STYLE, "Tutorial");
+	helpDialog->ShowModal();
+}
+
+void MyFrame::OnNew(wxCommandEvent& event)
+{
+	if (!isPlaying)
+	{
+		bool earlyExit = false;
+		int tempo = 0;
+		int instrumentCode = 0;
+		wxPoint timeSig(0, 0);
+
+		auto tempoDialog = new NewFileDialog(this, wxID_ANY, "Set Tempo", wxDefaultPosition, wxSize(FromDIP(500), FromDIP(250)), wxDEFAULT_DIALOG_STYLE, "Set Tempo", 0);
+		tempoDialog->ShowModal();
+		if (!tempoDialog->GetEarlyExit())
+		{
+			tempo = tempoDialog->GetTempo();
+			auto instrumentDialog = new NewFileDialog(this, wxID_ANY, "Set Instrument", wxDefaultPosition, wxSize(FromDIP(500), FromDIP(250)), wxDEFAULT_DIALOG_STYLE, "Set Instrument", 1);
+			instrumentDialog->ShowModal();
+
+			if (!instrumentDialog->GetEarlyExit())
+			{
+				instrumentCode = instrumentDialog->GetInstrument();
+				auto timeSigDialog = new NewFileDialog(this, wxID_ANY, "Set Time Signature", wxDefaultPosition, wxSize(FromDIP(500), FromDIP(250)), wxDEFAULT_DIALOG_STYLE, "Set Time Signature", 2);
+				timeSigDialog->ShowModal();
+
+				if (!timeSigDialog->GetEarlyExit())
+					timeSig = timeSigDialog->GetTimeSignature();
+				else
+					earlyExit = true;
+			}
+			else
+				earlyExit = true;
+
+		}
+		else
+			earlyExit = true;
+		wxFileDialog fileDialog(this, _("New"), "", "",
+			"MIDI files (*.mid)|*.mid|All files (*.*)|*.*",
+			wxFD_OPEN);
+
+		if (!earlyExit && fileDialog.ShowModal() == wxID_OK)
+		{
+			//get the path of the selected file
+			wxString fileLocationWX = fileDialog.GetPath();
+			//convert to string from wxString
+
+			if (isFileOpen) // only sets reset flag if there's already a file open
+				reset = true;
+
+			//destroys panels contained within the list and deletes empty cells
+			trackList->DetroyList();
+			trackInfoList->DetroyList();
+
+
+			midi = new MidiFile();
+			seq = new Alg_seq;
+			seq->get_time_map()->insert_tempo(tempo, 0);
+			seq->add_track(0);
+			seq->set_time_sig(0, timeSig.x, timeSig.y);
+			Alg_update_ptr update;
+			if (instrumentCode != 129)
+			{
+				update = seq->create_update(0, 0, 4);
+				update->set_int64_value("programi", instrumentCode);
+				seq->track(0)->add(update);
+				auto initialNote = seq->create_note(0, 0, 57, 57, 127, 20);
+				seq->track(0)->add(initialNote);
+			}
+			else
+			{
+				update = seq->create_update(0, 9, 9);
+				update->set_real_value("control7r", 0.8189);
+				seq->track(0)->add(update);
+
+				update = seq->create_update(0, 9, 9);
+				update->set_real_value("control10r", 0.5039);
+				seq->track(0)->add(update);
+
+				update = seq->create_update(0, 9, 9);
+				update->set_real_value("control0r", 0);
+				seq->track(0)->add(update);
+
+				update = seq->create_update(0, 9, 9);
+				update->set_real_value("control32r", 0.0157);
+				seq->track(0)->add(update);
+
+				update = seq->create_update(0, 9, 4);
+				update->set_int64_value("programi", 0);
+				seq->track(0)->add(update);
+
+				auto initialNote = seq->create_note(0, 9, 35, 35, 127, 20);
+				seq->track(0)->add(initialNote);
+			}
+
+			std::ofstream file;
+			file.open("output.txt");
+			seq->write(file, false);
+			file.close();
+
+			auto realFileName = (const_cast<char*>((const char*)fileLocationWX.mb_str()));
+
+			seq->smf_write(realFileName, 480);
+			seq->convert_to_beats();
+
+			midi->ParseFile(realFileName);
+
+			for (int i = 0; i < midi->vecTracks.size(); i++)
+			{
+				for (auto event : midi->vecTracks[i].vecEvents)
+				{
+					if (event.event == MidiEvent::Type::Program)
+					{
+						if (event.nProgram == 0 || event.nChannel == 9)
+							midi->vecTracks[i].isPercusion = true;
+
+					}
+				}
+			}
+
+			isFileOpen = true;
+
+			Setup();
+
+			SetStatusText("Created new file.");
+		}
+	}
+}
+
+void MyFrame::OnOpen(wxCommandEvent& event)
+{
+	event.Skip();
+	if (!isPlaying)
+	{
+		wxString wildcard = wxT("MIDI files (*.mid)|*.mid|All files (*.*)|*.*");
+
+		wxFileDialog openFileDialog(this, _("Open File"), "", "",
+			"MIDI files (*.mid)|*.mid|All files (*.*)|*.*",
+			wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+		//show dialog and check if user clicked "OK"
+		if (openFileDialog.ShowModal() == wxID_OK)
+		{
+			//get the path of the selected file
+			wxString fileLocationWX = openFileDialog.GetPath();
+			//convert to string from wxString
+			std::string fileLocation = std::string(fileLocationWX.mb_str(wxConvUTF8));
+
+
+			if (isFileOpen) // only sets reset flag if there's already a file open
+				reset = true;
+
+			//destroys panels contained within the list and deletes empty cells
+			trackList->DetroyList();
+			trackInfoList->DetroyList();
+
+			pathName = ResolveMidiPath(fileLocation);
+			SetStatusText("Opened: " + pathName);
+			midi = new MidiFile();
+			std::ifstream ifile(pathName, std::ios::binary | std::ios::in);
+			seq = new Alg_seq(ifile, true);
+			midi->ParseFile(fileLocation);
+			ifile.close();
+
+
+			std::ofstream file;
+			file.open("output.txt");
+			seq->write(file, false);
+			file.close();
+
+			beginingEmptyTracks = 0;
+			//removes any empty tracks and counts how many are removed before the first nonempty track
+			for (auto track : midi->vecTracks)
+			{
+				if (track.vecNotes.empty())
+				{
+					beginingEmptyTracks++;
+				}
+				else
+					break;
+			}
+			midi->trackIndexOffset = beginingEmptyTracks;
+			midi->vecTracks.erase(std::remove_if(midi->vecTracks.begin(), midi->vecTracks.end(),
+				[](const MidiTrack& t) {return t.vecNotes.empty(); }), midi->vecTracks.end());
+
+			for (int i = 0; i < midi->vecTracks.size(); i++)
+			{
+				for (auto event : midi->vecTracks[i].vecEvents)
+				{
+					if (event.event == MidiEvent::Type::Program)
+					{
+						if (event.nProgram == 0 || event.nChannel == 9)
+							midi->vecTracks[i].isPercusion = true;
+						
+					}
+				}
+			}
+
+			file.open("output.txt");
+			file << midi->vecTracks[0].isPercusion << std::endl;
+			file.close();
+
+			isFileOpen = true;
+
+			Setup();
+		}
+		else
+		{
+			//user cancelled the dialog
+			SetStatusText("File selection cancelled.");
+		}
+	}
+	
+}
+
+
+
+void MyFrame::OnSaveAs(wxCommandEvent& event)
+{
+	event.Skip();
+	if (!isPlaying)
+	{
+
+		wxFileDialog openFileDialog(this, _("Save As"), "", "",
+			"MIDI files (*.mid)|*.mid|All files (*.*)|*.*",
+			wxFD_SAVE);
+
+		if (openFileDialog.ShowModal() == wxID_OK)
+		{
+			wxString filePath = openFileDialog.GetPath();
+
+
+			auto realFilePath = (const_cast<char*>((const char*)filePath.mb_str()));
+
+			//writes to the file
+			seq->smf_write(realFilePath, midi->nDivision);
+			pathName = realFilePath;
+
+			trackList->DetroyList();
+			trackInfoList->DetroyList();
+
+			//opens the new file that was created/saved to
+			std::ifstream ifile(pathName, std::ios::binary | std::ios::in);
+			seq = new Alg_seq(ifile, true);
+			midi->ParseFile(pathName);
+			ifile.close();
+
+			//removes any empty tracks
+			midi->vecTracks.erase(std::remove_if(midi->vecTracks.begin(), midi->vecTracks.end(),
+				[](const MidiTrack& t) {return t.vecNotes.empty(); }), midi->vecTracks.end());
+
+			isFileOpen = true;
+			reset = true;
+			saved = true;
+
+			Setup();
+
+			SetStatusText("Saved: " + filePath);
+		}
+	}
+}
+
+void MyFrame::OnSave(wxCommandEvent& event)
+{
+	event.Skip();
+	if (!isPlaying)
+	{
+
+		if (pathName != "")
+		{
+			wxString filePath = pathName;
+			auto realFilePath = (const_cast<char*>((const char*)filePath.mb_str()));
+
+			seq->smf_write(realFilePath, midi->nDivision);
+
+			saved = true;
+			SetStatusText("Saved: " + filePath);
+		}
+	}
+}
+
+>>>>>>> Stashed changes
 
 wxIMPLEMENT_APP(MyApp);
 
@@ -206,15 +619,146 @@ bool MyApp::OnInit()
 
 void MyFrame::SetupInfoPanes(wxWindow* parent, wxSizer* sizer)
 {
+<<<<<<< Updated upstream
 	NULL;
+=======
+
+	auto* trackPanel = new MidiFrame(parent, wxID_ANY, wxDefaultPosition, wxSize(200, 100));
+
+	trackPanel->SetScrollRate(FromDIP(10), FromDIP(10));
+	trackPanel->SetVirtualSize(200, 100);
+	trackPanel->SetBackgroundColour(wxColor(70, 70, 70));
+
+
+	wxSizer* trackSizer = new wxBoxSizer(wxVERTICAL);
+
+
+	auto text = new wxStaticText(trackPanel, wxID_ANY, "Tracks:");
+	text->SetForegroundColour(wxColor(255, 255, 255));
+	trackSizer->Add(text, 0, wxALL, FromDIP(5));
+
+
+	if (trackNumber == 1) //sets up track if there's only one track
+	{
+		trackList->setIndex(0);
+		trackList->addTrack(new TrackFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(1000, 100)));
+		trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
+		trackIDs.push_back(trackList->getTrackFrame()->GetId());
+		trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL, 5);
+		trackList->getTrackFrame()->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnDoubleClick, this);
+
+	}
+	else
+	{
+
+		//fills vector with midiframes per track and adds them to the sizer
+		for (int i = 0; i < trackNumber; i++)
+		{
+			text = new wxStaticText(trackPanel, wxID_ANY, midi->vecTracks[i].sName);
+			text->SetForegroundColour(wxColor(255, 255, 255));
+			trackSizer->Add(text, 0, wxTOP | wxALL);
+			trackList->setIndex(i);
+			trackList->addTrack(new TrackFrame(trackPanel, wxID_ANY, wxDefaultPosition, wxSize(1000, 100)));
+			trackList->getTrackFrame()->SetBackgroundColour(wxColor(0, 0, 0));
+			trackIDs.push_back(trackList->getTrackFrame()->GetId());
+			if (i == 0)
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT | wxTOP, 5); //first track only has a boarder on the left right and top
+			else if (i == trackNumber - 1)
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT | wxBOTTOM, 5); //last track only has a boarder on the left right and bottom
+			else
+				trackSizer->Add(trackList->getTrackFrame(), 0, wxEXPAND | wxALL | wxRIGHT, 5); //middle tracks only have a boarder on the left and right
+
+
+			trackList->getTrackFrame()->Bind(wxEVT_LEFT_DCLICK, &MyFrame::OnDoubleClick, this);
+
+		}
+
+	}
+
+
+
+	trackPanel->SetSizerAndFit(trackSizer);
+
+	return trackPanel;
+>>>>>>> Stashed changes
 }
 
 
 MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
 	: wxFrame(nullptr, wxID_ANY, title, pos, size)
 {
+<<<<<<< Updated upstream
 	
 	wxSplitterWindow *splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
+=======
+	splitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
+
+	mainSizer = new wxBoxSizer(wxHORIZONTAL);
+
+	std::string pathName = ResolveMidiPath("battle-theme.mid");
+
+	wxString worked;
+
+
+	worked = pathName;
+
+	Bind(wxEVT_CLOSE_WINDOW, &MyFrame::OnClose, this);
+
+	BuildMenuBar();
+
+
+	CreateStatusBar(1);
+	SetStatusText("", 0);
+
+}
+
+wxSplitterWindow* MyFrame::ResetSplitter()
+{
+	return new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSP_BORDER | wxSP_LIVE_UPDATE);
+}
+
+
+void MyFrame::PlayMIDIFile(wxCommandEvent& event)
+{
+	if (!isPlaying)
+	{
+		playButton->SetLabel("Stop");
+		midiPlayer->seq_play(seq);
+		isPlaying = true;
+	}
+	else
+	{
+		playButton->SetLabel("Play");
+		midiPlayer->pauseMidi();
+		isPlaying = false;
+	}
+}
+
+
+void MyFrame::Setup()
+{
+
+	std::ofstream file;
+	file.open("output.txt");
+	file << midi->vecTracks[0].isPercusion << std::endl;
+	file.close();
+	mainSizer->Clear(true); // clears the main sizer, deleting it's contents in the process
+
+
+	//gets the number of tracks from the midi file and creates a vector (dynamic array) of panels of the size of the track number
+	int trackNumber = midi->getTrackNum();
+
+
+	if (reset) // if a reset is needed, the trackIDs vector is cleared and the splitter is reset
+	{
+
+		trackIDs.erase(trackIDs.begin(), trackIDs.end());
+
+		splitter = ResetSplitter();
+
+		reset = false;
+	}
+>>>>>>> Stashed changes
 
 	splitter->SetMinimumPaneSize(FromDIP(150));
 	 
@@ -477,7 +1021,55 @@ public:
 			}
 		}
 
+<<<<<<< Updated upstream
 		return true;
+=======
+		std::ofstream file;
+		file.open("output.txt");
+		file << midi->vecTracks[0].isPercusion << std::endl;
+		file.close();
+
+
+		editorWindow = new EditorFrame(this, wxID_ANY, "Editor", wxDefaultPosition, wxSize(FromDIP(1000), FromDIP(500)), wxDEFAULT_DIALOG_STYLE, "Editor", midi, seq);
+
+		editorWindow->Bind(EVT_UPDATE_TRACK, [&](TrackUpdateEvent& event) {
+			int trackToUpdate = event.GetTrackNumber();
+			midi->vecTracks[trackToUpdate].nMinNote = editorWindow->GetNewMinMax().x;
+			midi->vecTracks[trackToUpdate].nMaxNote = editorWindow->GetNewMinMax().y;
+			UpdateMidiTrack(trackToUpdate);
+			event.Skip();
+			});
+		editorWindow->ShowModal();
+
+
+		//std::ofstream file;
+		file.open("output.txt");
+		seq->write(file, false);
+		file.close();
+	
+	}
+	
+}
+
+std::string MyFrame::ResolveMidiPath(std::string sMidiPath) const
+{
+	namespace fs = std::filesystem;
+
+	std::vector<fs::path> candidates = {
+		fs::path(sMidiPath),
+		fs::path("./") / sMidiPath,
+		fs::path("../") / sMidiPath,
+		fs::path("../../") / sMidiPath,
+		fs::path("../../../") / sMidiPath,
+		fs::path("../../../../") / sMidiPath,
+		fs::path("../../../../../") / sMidiPath
+	};
+
+	for (const auto& p : candidates)
+	{
+		if (fs::exists(p))
+			return p.string();
+>>>>>>> Stashed changes
 	}
 
 
