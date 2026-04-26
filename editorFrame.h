@@ -73,9 +73,8 @@ private:
 
 	int highestY = 0;
 	int lowestY = 10000;
-	int distanceToCeilingFloor;
-	int ceiling = 127;
-	int floor = 0;
+	int distanceToCeiling;
+	int distanceToFloor;
 	int newMin, newMax;
 
 	bool ceilingReached = false;

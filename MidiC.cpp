@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <fstream>
 
 
 
@@ -20,11 +20,14 @@
 
 	void MidiFile::Clear()
 	{
-
+		vecTracks.clear();
+		m_nTempo = 0;
+		m_nBPM = 0;
 	}
 
 	bool MidiFile::ParseFile(const std::string& sFileName)
 	{
+		Clear();
 		// Open the MIDI File as a stream
 		std::ifstream ifs;
 		ifs.open(sFileName, std::fstream::in | std::ios::binary);
@@ -99,11 +102,12 @@
 		ifs.read((char*)&n16, sizeof(uint16_t));
 		uint16_t nTrackChunks = Swap16(n16);
 		ifs.read((char*)&n16, sizeof(uint16_t));
-		uint16_t nDivision = Swap16(n16);
+		nDivision = Swap16(n16);
 
 		for (uint16_t nChunk = 0; nChunk < nTrackChunks; nChunk++)
 		{
-			std::cout << "===== NEW TRACK" << std::endl;
+			
+			
 			// Read Track Header
 			ifs.read((char*)&n32, sizeof(uint32_t));
 			uint32_t nTrackID = Swap32(n32);
@@ -281,11 +285,14 @@
 							std::cout << "SMPTE: H:" << ifs.get() << " M:" << ifs.get() << " S:" << ifs.get() << " FR:" << ifs.get() << " FF:" << ifs.get() << std::endl;
 							break;
 						case MetaTimeSignature:
-							std::cout << "Time Signature: " << ifs.get() << "/" << (2 << ifs.get()) << std::endl;
+							timeSigNum = ifs.get();
+							timeSigDen = (2 << ifs.get());
+							std::cout << "Time Signature: " << timeSigNum << "/" << timeSigDen << std::endl;
 							std::cout << "ClocksPerTick: " << ifs.get() << std::endl;
 
 							// A MIDI "Beat" is 24 ticks, so specify how many 32nd notes constitute a beat
-							std::cout << "32per24Clocks: " << ifs.get() << std::endl;
+							n32PerBeat = ifs.get();
+							std::cout << "32per24Clocks: " << n32PerBeat << std::endl;
 							break;
 						case MetaKeySignature:
 							std::cout << "Key Signature: " << ifs.get() << std::endl;
@@ -352,4 +359,9 @@
 		}
 
 		return true;
+	}
+
+	int MidiFile::getTrackNum()
+	{
+		return vecTracks.size();
 	}

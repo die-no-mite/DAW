@@ -76,7 +76,8 @@ void EditorFrame::ButtonPress(wxKeyEvent& event)
 	{
 		if (!ceilingReached)
 		{
-			distanceToCeilingFloor++;
+			distanceToCeiling--;
+			distanceToFloor--;
 			editorPanel->ShiftNotes('u', GetGridStepX(), GetGridStepY());
 			relativePositionFlag = true;
 		}
@@ -85,7 +86,8 @@ void EditorFrame::ButtonPress(wxKeyEvent& event)
 	{
 		if (!floorReached)
 		{
-			distanceToCeilingFloor--;
+			distanceToFloor++;
+			distanceToCeiling++;
 			editorPanel->ShiftNotes('d', GetGridStepX(), GetGridStepY());
 			relativePositionFlag = true;
 		}
@@ -157,11 +159,6 @@ void EditorFrame::ResetGridAnchorIfEmpty()
 void EditorFrame::OnDoubleClick(wxMouseEvent& evt)
 {
 	evt.Skip();
-	auto& currentTrack = midi->vecTracks[trackNumber];
-
-	uint32_t noteRange = currentTrack.nMaxNote - currentTrack.nMinNote;
-	auto& minNote = currentTrack.nMinNote;
-	auto& maxNote = currentTrack.nMaxNote;
 
 	const auto position = evt.GetPosition();
 
@@ -182,14 +179,7 @@ void EditorFrame::OnDoubleClick(wxMouseEvent& evt)
 	editorPanel->addNote(FromDIP(10), 17, snappedX, snappedY, wxColor(255, 255, 255), giveID);
 	LogNote(static_cast<float>(snappedX), static_cast<float>(snappedY), static_cast<float>(FromDIP(10)));
 
-	for (auto note : notesStored)
-	{
-		if (-((note.y - noteRange * 17 - minNote * 17) / 17) < lowestY)
-			lowestY = -((note.y - noteRange * 17 - minNote * 17) / 17);
-
-		if (-((note.y - noteRange * 17 - minNote * 17) / 17) > highestY)
-			highestY = -((note.y - noteRange * 17 - minNote * 17) / 17);
-	}
+	
 }
 
 void EditorFrame::CheckNewHighestLowest(int y)
@@ -227,12 +217,6 @@ void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 	bool foundFlag = false;
 	targetIndex = 0;
 
-	auto& currentTrack = midi->vecTracks[trackNumber];
-
-	uint32_t noteRange = currentTrack.nMaxNote - currentTrack.nMinNote;
-	auto& minNote = currentTrack.nMinNote;
-	auto& maxNote = currentTrack.nMaxNote;
-
 	for (const auto& element : notesStored)
 	{
 		if (element.noteID == currentID)
@@ -243,7 +227,7 @@ void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 		++targetIndex;
 	}
 
-	if (!foundFlag)
+	if (!foundFlag || targetIndex >= static_cast<int>(notesStored.size()))
 	{
 		return;
 	}
@@ -256,20 +240,9 @@ void EditorFrame::OnUpdateNote(wxCommandEvent& evt)
 		newX = SnapX(rawX);
 		newY = SnapY(rawY);
 
-		CheckNewHighestLowest(newY);
-
 		notesStored[targetIndex].x = static_cast<float>(newX);
 		notesStored[targetIndex].y = static_cast<float>(newY);
 		newDuration = static_cast<int>(notesStored[targetIndex].length);
-
-		for (auto note : notesStored)
-		{
-			if (-((note.y - noteRange * 17 - minNote * 17) / 17) < lowestY)
-				lowestY = -((note.y - noteRange * 17 - minNote * 17) / 17);
-
-			if (-((note.y - noteRange * 17 - minNote * 17) / 17) > highestY)
-				highestY = -((note.y - noteRange * 17 - minNote * 17) / 17);
-		}
 	}
 	else
 	{
@@ -293,6 +266,8 @@ void EditorFrame::FinishUpdateNote(wxCommandEvent& evt)
 {
 	constexpr int noteHeight = 17;
 	const int noteID = notesStored[targetIndex].noteID;
+
+	CheckNewHighestLowest(newY);
 
 	editorPanel->removeNoteByID(noteID);
 	editorPanel->addNote(newDuration, noteHeight, newX, newY, wxColor(255, 255, 255), noteID);
@@ -386,13 +361,15 @@ void EditorFrame::DrawMIDIEvents(int trackNumber)
 				notesStored.back().noteID);
 			
 		}
+		
+		distanceToCeiling = 127 - highestY;
+		distanceToFloor = 0 - lowestY;
 
 	}
 }
 
 void EditorFrame::DrawNoteLabels(int coord, int key)
 {
-	noteLabelsDrawn = true;
 	firstNoteY = coord;
 	firstOctave = 0;
 	noteName;
@@ -457,14 +434,6 @@ void EditorFrame::OnPaint(wxPaintEvent& event)
 	wxAutoBufferedPaintDC dc(piano);
 	PrepareDC(dc);
 	dc.Clear();
-	auto& currentTrack = midi->vecTracks[trackNumber];
-
-	int noteRange = currentTrack.nMaxNote - currentTrack.nMinNote;
-	int minNote = currentTrack.nMinNote;
-	int maxNote = currentTrack.nMaxNote;
-	int firstKey = -((firstNoteY - noteRange * 17 - minNote * 17) / 17);
-	int distanceToHighest = highestY - firstKey;
-	int distanceToLowest = firstKey - lowestY;
 
 	wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
 	if (!gc)
@@ -475,10 +444,9 @@ void EditorFrame::OnPaint(wxPaintEvent& event)
 	wxFont font(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
 	gc->SetFont(font, *wxBLACK);
 
-
-	if (distanceToCeilingFloor + highestY == ceiling )
+	if (distanceToCeiling == 6)
 		ceilingReached = true;
-	else if (distanceToCeilingFloor + lowestY == floor)
+	else if (distanceToFloor == 2)
 		floorReached = true;
 	else
 	{
@@ -504,7 +472,6 @@ void EditorFrame::OnPaint(wxPaintEvent& event)
 		GetNoteName(noteNumber);
 		noteLabel = noteName + std::to_string(octave);
 		gc->DrawText(noteLabel, 90, y + editorPanel->GetShiftY());
-		
 	
 	}
 	octave = tempOctave;
@@ -523,7 +490,7 @@ void EditorFrame::OnPaint(wxPaintEvent& event)
 		
 	}
 
-	
+	noteLabelsDrawn = true;
 	delete gc;
 }
 
@@ -567,6 +534,7 @@ void EditorFrame::LogMidiData()
 	auto& currentTrack = midi->vecTracks[trackNumber];  
 
 	uint32_t noteRange = currentTrack.nMaxNote - currentTrack.nMinNote;
+	int realNoteRange = noteRange;
 	auto& minNote = currentTrack.nMinNote;
 	auto& maxNote = currentTrack.nMaxNote;
 	bool isPercusion = currentTrack.isPercusion;
@@ -575,6 +543,7 @@ void EditorFrame::LogMidiData()
 
 	int timePerBeat = midi->m_nTempo;
 	float timePerMeasure = timePerBeat * midi->timeSigNum;
+	int beatOffset = 0;
 	float newBeat;
 	auto algtrack = seq->track(trackNumber + midi->trackIndexOffset);
 	seq->convert_to_beats();
@@ -590,14 +559,12 @@ void EditorFrame::LogMidiData()
 		MidiNote noteToAdd;
 		noteToAdd.nStartTime = (note.x * 10 + -170); // -170 is the trackoffset, *10 is the time per column
 		noteToAdd.nDuration = note.length * 10;
-		if(-((note.y - noteRange * 17 - minNote * 17) / 17) >= minNote)
+		if(minNote >= GetNewMinMax().x)
 			noteToAdd.nKey = -((note.y - noteRange * 17 - minNote * 17) / 17);
 		else
 		{
-			int minCoord = noteRange * 17;
-			int coordDistance = note.y - minCoord;
-			int gridDistance = coordDistance / 17;
-			noteToAdd.nKey = minNote - gridDistance;
+			auto tempRange = maxNote - GetNewMinMax().x;
+			noteToAdd.nKey = -((note.y - tempRange * 17 - GetNewMinMax().x * 17) / 17);
 		}
 		noteVector.push_back(noteToAdd);
 		int realKey = noteToAdd.nKey;
