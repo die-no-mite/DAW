@@ -76,8 +76,7 @@ void EditorFrame::ButtonPress(wxKeyEvent& event)
 	{
 		if (!ceilingReached)
 		{
-			distanceToCeiling--;
-			distanceToFloor--;
+			distanceToCeilingFloor++;
 			editorPanel->ShiftNotes('u', GetGridStepX(), GetGridStepY());
 			relativePositionFlag = true;
 		}
@@ -86,8 +85,7 @@ void EditorFrame::ButtonPress(wxKeyEvent& event)
 	{
 		if (!floorReached)
 		{
-			distanceToFloor++;
-			distanceToCeiling++;
+			distanceToCeilingFloor--;
 			editorPanel->ShiftNotes('d', GetGridStepX(), GetGridStepY());
 			relativePositionFlag = true;
 		}
@@ -361,9 +359,6 @@ void EditorFrame::DrawMIDIEvents(int trackNumber)
 				notesStored.back().noteID);
 			
 		}
-		
-		distanceToCeiling = 127 - highestY;
-		distanceToFloor = 0 - lowestY;
 
 	}
 }
@@ -373,6 +368,7 @@ void EditorFrame::DrawNoteLabels(int coord, int key)
 	firstNoteY = coord;
 	firstOctave = 0;
 	noteName;
+	distanceToCeilingFloor = key;
 	
 	while (key >= 12)
 	{
@@ -444,9 +440,9 @@ void EditorFrame::OnPaint(wxPaintEvent& event)
 	wxFont font(12, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
 	gc->SetFont(font, *wxBLACK);
 
-	if (distanceToCeiling == 6)
+	if (distanceToCeilingFloor == 127)
 		ceilingReached = true;
-	else if (distanceToFloor == 2)
+	else if (distanceToCeilingFloor == 0)
 		floorReached = true;
 	else
 	{
@@ -476,6 +472,7 @@ void EditorFrame::OnPaint(wxPaintEvent& event)
 	}
 	octave = tempOctave;
 	noteNumber = tempNoteNumber;
+	//76 and 51
 	for (int y = firstNoteY + GetGridStepY(); (octave > 0 || noteNumber != 0); y += GetGridStepY())
 	{
 		noteNumber--;
@@ -541,6 +538,8 @@ void EditorFrame::LogMidiData()
 	currentTrack.vecNotes.clear();
 	auto& noteVector = currentTrack.vecNotes;
 
+	int minCoord;
+
 	int timePerBeat = midi->m_nTempo;
 	float timePerMeasure = timePerBeat * midi->timeSigNum;
 	int beatOffset = 0;
@@ -559,12 +558,14 @@ void EditorFrame::LogMidiData()
 		MidiNote noteToAdd;
 		noteToAdd.nStartTime = (note.x * 10 + -170); // -170 is the trackoffset, *10 is the time per column
 		noteToAdd.nDuration = note.length * 10;
-		if(minNote >= GetNewMinMax().x)
+		if(-((note.y - noteRange * 17 - minNote * 17) / 17) >= minNote)
 			noteToAdd.nKey = -((note.y - noteRange * 17 - minNote * 17) / 17);
 		else
 		{
-			auto tempRange = maxNote - GetNewMinMax().x;
-			noteToAdd.nKey = -((note.y - tempRange * 17 - GetNewMinMax().x * 17) / 17);
+			minCoord = noteRange * 17;
+			int distance = note.y - minCoord;
+			int gridDistance = distance / 17;
+			noteToAdd.nKey = minNote - gridDistance;
 		}
 		noteVector.push_back(noteToAdd);
 		int realKey = noteToAdd.nKey;
